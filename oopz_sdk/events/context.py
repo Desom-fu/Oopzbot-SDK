@@ -101,7 +101,7 @@ class EventContext:
                 emoji=emoji,
                 target=self.event.message.sender_id,
             )
-        return await self.bot.messages.add_reaction(
+        return await self.bot.messages.add_channel_reaction(
             message_id=self.event.message.message_id,
             area=self.event.message.area,
             channel=self.event.message.channel,
