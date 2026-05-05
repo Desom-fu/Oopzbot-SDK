@@ -367,7 +367,7 @@ class Message(BaseService):
         })
         return models.OperationResult.from_api(data)
 
-    async def add_reaction(self, message_id: str, area: str, channel: str, emoji: str) -> models.OperationResult:
+    async def add_channel_reaction(self, message_id: str, area: str, channel: str, emoji: str) -> models.OperationResult:
         """
         给频道消息添加表情反应。
         """

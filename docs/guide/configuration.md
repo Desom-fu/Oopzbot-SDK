@@ -184,4 +184,4 @@ config = OopzConfig(
 
 ## OneBot 配置
 
-详见 [OneBot 适配](../adapters/index.md))。
+详见 [OneBot 适配](../adapters/index.md)。
