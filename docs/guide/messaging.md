@@ -5,7 +5,7 @@
 消息能力由 `bot.messages` 或者根据会话由 `context` 提供。频道消息、私信、撤回、置顶、历史消息拉取都在 Message Service
 `oopz_sdk.services.message` 中。
 
-## 发送频道文本
+## 发送频道消息
 
 bot实例中已经暴露所有service对象，我们可以使用 `bot.messages.send_message()` 发送频道消息：
 
@@ -39,43 +39,8 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-## 在事件中回复消息
+## 发送私信
 
-```python
-@bot.on_message
-async def handle_message(message: Message, ctx: EventContext):
-    if message.text.strip() == "ping":
-        await ctx.reply("pong")
-```
-
-`ctx.reply()` 会自动使用当前消息的：
-
-- `area`
-- `channel`
-- `message_id`
-
-因此在 handler 里通常不需要手动取 `area` 和 `channel`。
-
-## 手动回复某条消息
-
-```python
-await client.messages.send_message(
-    "收到",
-    area=message.area,
-    channel=message.channel,
-    reference_message_id=message.message_id,
-)
-```
-
-## 私信
-
-```python
-@bot.on_private_message
-async def handle_message(message: Message, ctx: EventContext):
-    await ctx.reply("这是私信回复")
-```
-
-当然, 你也可以直接调用 `bot.messages.send_private_message()` 发送私信：
 
 ```python
 await bot.messages.send_private_message(
@@ -86,6 +51,73 @@ await bot.messages.send_private_message(
 ```
 
 如果不传 `channel`，SDK 会先调用 `open_private_session(target)` 打开或创建私信会话，再发送到该会话。
+
+## 在事件中进行快捷动作
+
+!!! tips
+    在事件回调里，`ctx` 还提供了几个快捷方法，可以直接对当前消息进行回复、撤回、添加反应等操作，无需再传 `area` 和 `channel`。
+
+### 发送消息 send
+
+可以直接调用 `ctx.send()` 快捷发送消息：
+
+```python
+@bot.on_message
+async def handle_message(message: Message, ctx: EventContext):
+    if message.text.strip() == "ping":
+        await ctx.send("pong")
+```
+
+`ctx.send()` 会自动使用当前消息的：
+
+- `area`
+- `channel`
+- `message_id`
+
+因此在 handler 里通常不需要手动取 `area` 和 `channel`。
+
+私信中也可以使用 `ctx.send()`：
+
+```python
+@bot.on_private_message
+async def handle_message(message: Message, ctx: EventContext):
+    await ctx.reply("这是私信回复")
+```
+
+### 回复消息 reply
+
+可以在频道和私信中通过 `ctx.reply()` 快捷回复当前消息：
+
+```python
+@bot.on_message
+async def handle_message(message: Message, ctx: EventContext):
+    if message.text.strip() == "ping":
+        await ctx.reply("pong")
+```
+
+### 撤回消息 recall
+
+频道消息中可以通过 `ctx.recall()` 快捷撤回当前消息：
+
+```python
+@bot.on_message
+async def handle_message(message: Message, ctx: EventContext):
+    if message.text.strip() == "ping":
+        await ctx.recall()
+```
+
+当前私信不支持撤回操作, 调用会导致 `RuntimeError`。
+
+### 给消息一个反应 reaction
+
+可以在频道和私信中使用 `ctx.react()` 快捷给当前消息添加一个反应：
+
+```python
+@bot.on_private_message
+async def handle_message(message: Message, ctx: EventContext):
+    await ctx.react("👍")
+```
+
 
 ## Segment 消息
 
