@@ -10,7 +10,7 @@
 [![Package](https://img.shields.io/badge/package-oopz--sdk-yellow.svg)](https://pypi.org/project/oopz-sdk/)
 [![Async](https://img.shields.io/badge/asyncio-ready-purple.svg)](https://docs.python.org/3/library/asyncio.html)
 [![Typing](https://img.shields.io/badge/typing-pydantic%20v2-orange.svg)](https://docs.pydantic.dev/)
-![OneBot](https://img.shields.io/badge/OneBot-v11/v12-blueviolet?style=flat-square)
+[![OneBot](https://img.shields.io/badge/OneBot-v11/v12-blueviolet?style=flat-square)](https://tangqingfeng7.github.io/Oopzbot-SDK/adapters/onebot/)
 
 **异步优先 · 事件驱动 · 类型友好 · 消息 / 媒体 / 语音**
 
