@@ -420,3 +420,434 @@ await client.messages.top_message(
     ```
 
     因为 SDK 无法明确判断附件应该来自 Segment 还是手动参数。
+
+---
+
+## `get_channel_message_reactions(message_id)`
+
+获取单条频道消息的全部表情回应汇总。
+
+```python
+item = await client.messages.get_channel_message_reactions(
+    message_id="消息 ID",
+)
+
+print(item.message_id)
+
+for emoji in item.emojis:
+    print(emoji.emoji, emoji.person_count, emoji.me)
+```
+
+=== "参数"
+
+    | 参数 | 类型 | 必填 | 说明 |
+    | --- | --- | --- | --- |
+    | `message_id` | `str` | 是 | Oopz 消息 ID，不能为空。 |
+
+=== "返回值"
+
+    返回：`MessageEmojiItem`。
+
+    对应模型：`oopz_sdk.models.MessageEmojiItem`
+
+    | 字段 | 类型 | 默认值 | API 字段 | 说明 |
+    | --- | --- | --- | --- | --- |
+    | `message_id` | `str` | `""` | `messageId` | Oopz 消息 ID。 |
+    | `emojis` | `list[MessageEmoji]` | `[]` | `emojis` | 该消息上的表情回应列表。 |
+
+    `MessageEmoji` 字段：
+
+    | 字段 | 类型 | 默认值 | API 字段 | 说明 |
+    | --- | --- | --- | --- | --- |
+    | `emoji` | `str` | `""` | `emoji` | 表情内容。 |
+    | `person_count` | `int` | `0` | `personCount` | 回应该表情的人数。 |
+    | `me` | `bool` | `False` | `me` | 当前账号是否回应了该表情。 |
+    | `created_at` | `str` | `""` | `createdAt` | 表情回应创建时间。通常是微秒时间戳字符串。 |
+
+=== "说明"
+
+    该方法会调用频道消息 reaction 汇总接口，并将返回项转换为 `MessageEmojiItem`。
+
+    如果接口返回的列表数量不是 `1`，SDK 会抛出异常，因为单条消息查询预期只返回一条消息的 reaction 汇总。
+
+---
+
+## `get_channel_message_reactions_batch(message_ids)`
+
+批量获取频道消息的表情回应汇总。
+
+```python
+items = await client.messages.get_channel_message_reactions_batch(
+    [
+        "消息 ID 1",
+        "消息 ID 2",
+    ]
+)
+
+for item in items:
+    print(item.message_id, item.emojis)
+```
+
+=== "参数"
+
+    | 参数 | 类型 | 必填 | 说明 |
+    | --- | --- | --- | --- |
+    | `message_ids` | `list[str]` | 是 | Oopz 消息 ID 列表。数量必须大于 `0`，且不能超过 `50`。 |
+
+=== "返回值"
+
+    返回：`list[MessageEmojiItem]`。
+
+    对应模型：`oopz_sdk.models.MessageEmojiItem`
+
+    | 字段 | 类型 | 默认值 | API 字段 | 说明 |
+    | --- | --- | --- | --- | --- |
+    | `message_id` | `str` | `""` | `messageId` | Oopz 消息 ID。 |
+    | `emojis` | `list[MessageEmoji]` | `[]` | `emojis` | 该消息上的表情回应列表。 |
+
+=== "注意"
+
+    单次批量查询最多支持 `50` 条消息。
+
+---
+
+## `get_private_message_reactions(message_id)`
+
+获取单条私信消息的全部表情回应汇总。
+
+```python
+item = await client.messages.get_private_message_reactions(
+    message_id="消息 ID",
+)
+
+print(item.message_id)
+
+for emoji in item.emojis:
+    print(emoji.emoji, emoji.person_count, emoji.me)
+```
+
+=== "参数"
+
+    | 参数 | 类型 | 必填 | 说明 |
+    | --- | --- | --- | --- |
+    | `message_id` | `str` | 是 | Oopz 消息 ID，不能为空。 |
+
+=== "返回值"
+
+    返回：`MessageEmojiItem`。
+
+    对应模型：`oopz_sdk.models.MessageEmojiItem`
+
+    | 字段 | 类型 | 默认值 | API 字段 | 说明 |
+    | --- | --- | --- | --- | --- |
+    | `message_id` | `str` | `""` | `messageId` | Oopz 消息 ID。 |
+    | `emojis` | `list[MessageEmoji]` | `[]` | `emojis` | 该消息上的表情回应列表。 |
+
+    `MessageEmoji` 字段：
+
+    | 字段 | 类型 | 默认值 | API 字段 | 说明 |
+    | --- | --- | --- | --- | --- |
+    | `emoji` | `str` | `""` | `emoji` | 表情内容。 |
+    | `person_count` | `int` | `0` | `personCount` | 回应该表情的人数。 |
+    | `me` | `bool` | `False` | `me` | 当前账号是否回应了该表情。 |
+    | `created_at` | `str` | `""` | `createdAt` | 表情回应创建时间。通常是微秒时间戳字符串。 |
+
+=== "说明"
+
+    该方法会调用私信消息 reaction 汇总接口，并将返回项转换为 `MessageEmojiItem`。
+
+    如果接口返回的列表数量不是 `1`，SDK 会抛出异常，因为单条消息查询预期只返回一条消息的 reaction 汇总。
+
+---
+
+## `get_private_message_reactions_batch(message_ids)`
+
+批量获取私信消息的表情回应汇总。
+
+```python
+items = await client.messages.get_private_message_reactions_batch(
+    [
+        "消息 ID 1",
+        "消息 ID 2",
+    ]
+)
+
+for item in items:
+    print(item.message_id, item.emojis)
+```
+
+=== "参数"
+
+    | 参数 | 类型 | 必填 | 说明 |
+    | --- | --- | --- | --- |
+    | `message_ids` | `list[str]` | 是 | Oopz 消息 ID 列表。数量必须大于 `0`，且不能超过 `50`。 |
+
+=== "返回值"
+
+    返回：`list[MessageEmojiItem]`。
+
+    对应模型：`oopz_sdk.models.MessageEmojiItem`
+
+    | 字段 | 类型 | 默认值 | API 字段 | 说明 |
+    | --- | --- | --- | --- | --- |
+    | `message_id` | `str` | `""` | `messageId` | Oopz 消息 ID。 |
+    | `emojis` | `list[MessageEmoji]` | `[]` | `emojis` | 该消息上的表情回应列表。 |
+
+=== "注意"
+
+    单次批量查询最多支持 `50` 条消息。
+
+---
+
+## `add_channel_reaction(message_id, area, channel, emoji)`
+
+给频道消息添加表情回应。
+
+```python
+result = await client.messages.add_channel_reaction(
+    message_id="消息 ID",
+    area="域 ID",
+    channel="频道 ID",
+    emoji="❤️",
+)
+
+print(result.ok)
+```
+
+=== "参数"
+
+    | 参数 | 类型 | 必填 | 说明 |
+    | --- | --- | --- | --- |
+    | `message_id` | `str` | 是 | Oopz 消息 ID，不能为空。 |
+    | `area` | `str` | 是 | 域 ID，不能为空。 |
+    | `channel` | `str` | 是 | 频道 ID，不能为空。 |
+    | `emoji` | `str` | 是 | 表情回应，支持真实 emoji、十进制 Unicode 或十六进制 Unicode。 |
+
+=== "返回值"
+
+    返回：`OperationResult`。
+
+    对应模型：`oopz_sdk.models.OperationResult`
+
+    | 字段 | 类型 | 默认值 | 说明 |
+    | --- | --- | --- | --- |
+    | `ok` | `bool` | `True` | 操作是否成功。 |
+    | `message` | `str` | `""` | 操作消息或错误信息。 |
+
+=== "说明"
+
+    表情参数 `emoji` 支持：
+
+    - 真实 emoji，例如 `❤️`
+    - 十进制 Unicode，例如 `10084`
+    - 十六进制 Unicode，例如 `0x2764`
+
+    ```python
+    await client.messages.add_channel_reaction(message_id, area=area, channel=channel, emoji="❤️")
+    await client.messages.add_channel_reaction(message_id, area=area, channel=channel, emoji="10084")
+    await client.messages.add_channel_reaction(message_id, area=area, channel=channel, emoji="0x2764")
+    ```
+
+    支持列表见下文 [reaction-emoji-支持列表](#reaction-emoji-支持列表)。 使用了不支持的表情会导致sdk返回ValueError异常。
+
+---
+
+## `add_private_reaction(message_id, channel, target, emoji, area="")`
+
+给私信消息添加表情回应。
+
+```python
+result = await client.messages.add_private_reaction(
+    message_id="消息 ID",
+    channel="私信会话 ID",
+    target="用户 UID",
+    emoji="❤️",
+)
+
+print(result.ok)
+```
+
+=== "参数"
+
+    | 参数 | 类型 | 必填 | 默认值 | 说明 |
+    | --- | --- | --- | --- | --- |
+    | `message_id` | `str` | 是 | - | Oopz 消息 ID，不能为空。 |
+    | `channel` | `str` | 是 | - | 私信会话 ID，不能为空。 |
+    | `target` | `str` | 是 | - | 目标用户 UID，不能为空。 |
+    | `emoji` | `str` | 是 | - | 表情回应，支持真实 emoji、十进制 Unicode 或十六进制 Unicode。 |
+    | `area` | `str` | 否 | `""` | 私信目标所属域 ID。一般可不传。 |
+
+=== "返回值"
+
+    返回：`OperationResult`。
+
+    对应模型：`oopz_sdk.models.OperationResult`
+
+    | 字段 | 类型 | 默认值 | 说明 |
+    | --- | --- | --- | --- |
+    | `ok` | `bool` | `True` | 操作是否成功。 |
+    | `message` | `str` | `""` | 操作消息或错误信息。 |
+
+=== "说明"
+
+    表情参数 `emoji` 支持：
+
+    - 真实 emoji，例如 `❤️`
+    - 十进制 Unicode，例如 `10084`
+    - 十六进制 Unicode，例如 `0x2764`
+
+    支持列表见下文 [reaction-emoji-支持列表](#reaction-emoji-支持列表) 。使用了不支持的表情会导致sdk返回ValueError异常。
+
+---
+
+## `get_channel_reaction_persons(message_id, channel, emoji, page=1, page_size=4)`
+
+获取频道消息中回应了指定表情的用户列表。
+
+```python
+uids = await client.messages.get_channel_reaction_persons(
+    message_id="消息 ID",
+    channel="频道 ID",
+    emoji="❤️",
+)
+
+for uid in uids:
+    print(uid)
+```
+
+=== "参数"
+
+    | 参数 | 类型 | 必填 | 默认值 | 说明 |
+    | --- | --- | --- | --- | --- |
+    | `message_id` | `str` | 是 | - | Oopz 消息 ID，不能为空。 |
+    | `channel` | `str` | 是 | - | 频道 ID，不能为空。 |
+    | `emoji` | `str` | 是 | - | 要查询的[表情](#reaction-emoji-支持列表)，支持真实 emoji、十进制 Unicode 或十六进制 Unicode。 |
+    | `page` | `int` | 否 | `1` | 页码。 |
+    | `page_size` | `int` | 否 | `4` | 每页数量。 |
+
+=== "返回值"
+
+    返回：`list[str]`。
+
+    列表中的每一项是回应了该表情的用户 UID。
+
+=== "说明"
+
+    这个方法只查询某一个指定表情的回应用户。
+
+    如果想先获取某条消息包含哪些表情回应，可以使用 `get_channel_message_reactions()`。
+
+---
+
+## `get_private_reaction_persons(message_id, channel, emoji, page=1, page_size=4)`
+
+获取私信消息中回应了指定表情的用户列表。
+
+```python
+uids = await client.messages.get_private_reaction_persons(
+    message_id="消息 ID",
+    channel="私信会话 ID",
+    emoji="❤️",
+)
+
+for uid in uids:
+    print(uid)
+```
+
+=== "参数"
+
+    | 参数 | 类型 | 必填 | 默认值 | 说明 |
+    | --- | --- | --- | --- | --- |
+    | `message_id` | `str` | 是 | - | Oopz 消息 ID，不能为空。 |
+    | `channel` | `str` | 是 | - | 私信会话 ID，不能为空。 |
+    | `emoji` | `str` | 是 | - | 要查询的[表情](#reaction-emoji-支持列表)，支持真实 emoji、十进制 Unicode 或十六进制 Unicode。 |
+    | `page` | `int` | 否 | `1` | 页码。 |
+    | `page_size` | `int` | 否 | `4` | 每页数量。 |
+
+=== "返回值"
+
+    返回：`list[str]`。
+
+    列表中的每一项是回应了该表情的用户 UID。
+
+---
+
+## Reaction Emoji 支持列表
+
+| Emoji | Unicode   | 中文      | Emoji | Unicode  | 中文           |
+|------:|-----------|:--------|------:|----------|:-------------|
+|       | `1061376` | 无语      |    😰 | `128560` | 冷汗           |
+|       | `1061377` | 皱眉看手机   |    😥 | `128549` | 失望但如释重负      |
+|       | `1061378` | 黑人问号    |    😓 | `128531` | 汗            |
+|       | `1061379` | 爱心脸     |    🤗 | `129303` | 抱抱           |
+|       | `1061380` | 捂嘴哭     |    🤔 | `129300` | 想一想          |
+|       | `1061381` | 捂脸哭     |    🤭 | `129325` | 不说           |
+|       | `1061382` | 苦笑      |    🥱 | `129393` | 打呵欠          |
+|       | `1061383` | 笑喷      |    🤫 | `129323` | 安静的脸         |
+|       | `1061384` | 捂嘴笑     |    🤥 | `129317` | 说谎           |
+|       | `1061386` | 叹气      |    😐 | `128528` | 冷漠           |
+|       | `1061387` | 无语流汗    |    😑 | `128529` | 无语           |
+|       | `1061388` | 疑问      |    😬 | `128556` | 龇牙咧嘴         |
+|       | `1061389` | 暗中观察    |    🙄 | `128580` | 翻白眼          |
+|       | `1061390` | 捂脸      |    😯 | `128559` | 缄默           |
+|       | `1061391` | 狗头      |    😦 | `128550` | 啊            |
+|    😀 | `128512`  | 嘿嘿      |    😧 | `128551` | 极度痛苦         |
+|    😃 | `128515`  | 哈哈      |    😲 | `128562` | 震惊           |
+|    😄 | `128516`  | 大笑      |    😴 | `128564` | 睡着了          |
+|    😁 | `128513`  | 嘻嘻      |    🤤 | `129316` | 流口水          |
+|    😆 | `128518`  | 斜眼笑     |    😪 | `128554` | 困            |
+|    😅 | `128517`  | 苦笑      |    😵 | `128565` | 晕头转向         |
+|    😂 | `128514`  | 笑哭了     |    🤐 | `129296` | 闭嘴           |
+|    🤣 | `129315`  | 笑得满地打滚  |    🥴 | `129396` | 头昏眼花         |
+|    😊 | `128522`  | 羞涩微笑    |    🤢 | `129314` | 恶心           |
+|     ☺ | `9786`    | 微笑      |    🤮 | `129326` | 呕吐           |
+|    😇 | `128519`  | 微笑天使    |    🤧 | `129319` | 打喷嚏          |
+|    🙂 | `128578`  | 呵呵      |    😷 | `128567` | 感冒           |
+|    🙃 | `128579`  | 倒脸      |    🤒 | `129298` | 发烧           |
+|    😉 | `128521`  | 眨眼      |    🤕 | `129301` | 受伤           |
+|    😌 | `128524`  | 松了口气    |    🤑 | `129297` | 发财           |
+|    🥲 | `129394`  | 含泪的笑脸   |    🤠 | `129312` | 牛仔帽脸         |
+|    😍 | `128525`  | 花痴      |    🥸 | `129400` | 伪装的脸         |
+|    🥰 | `129392`  | 喜笑颜开    |    😈 | `128520` | 恶魔微笑         |
+|    😘 | `128536`  | 飞吻      |    👿 | `128127` | 生气的恶魔        |
+|    😗 | `128535`  | 亲亲      |    👹 | `128121` | 食人魔          |
+|    😙 | `128537`  | 微笑亲亲    |    👺 | `128122` | 小妖精          |
+|    😚 | `128538`  | 羞涩亲亲    |    🤡 | `129313` | 小丑脸          |
+|    😋 | `128523`  | 好吃      |    🫣 | `129763` | 偷看表情         |
+|    😛 | `128539`  | 吐舌      |    🫢 | `129762` | 睁着眼睛、手捂住嘴的表情 |
+|    😝 | `128541`  | 眯眼吐舌    |    🫡 | `129761` | 敬礼表情         |
+|    😜 | `128540`  | 单眼吐舌    |    🫥 | `129765` | 虚线表情         |
+|    🤪 | `129322`  | 滑稽      |    🥹 | `129401` | 强忍泪水表情       |
+|    🤨 | `129320`  | 挑眉      |    🫤 | `129764` | 歪嘴表情         |
+|    🧐 | `129488`  | 带单片眼镜的脸 |    🫠 | `129760` | 融化表情         |
+|    🤓 | `129299`  | 书呆子脸    |    💩 | `128169` | 大便           |
+|    😎 | `128526`  | 墨镜笑脸    |    💤 | `128164` | 睡着           |
+|    🤩 | `129321`  | 好崇拜哦    |    💣 | `128163` | 炸弹           |
+|    🥳 | `129395`  | 聚会笑脸    |    💢 | `128162` | 怒            |
+|    😏 | `128527`  | 得意      |    💋 | `128139` | 唇印           |
+|    😒 | `128530`  | 不高兴     |    🌹 | `127801` | 玫瑰           |
+|    😞 | `128542`  | 失望      |    🥀 | `129344` | 枯萎的花         |
+|    😔 | `128532`  | 沉思      |     ❤ | `10084`  | 红心           |
+|    😟 | `128543`  | 担心      |    💔 | `128148` | 心碎           |
+|    😕 | `128533`  | 困扰      |    👌 | `128076` | Ok           |
+|    🙁 | `128577`  | 微微不满    |    🖐 | `128400` | 手掌           |
+|     ☹ | `9785`    | 不满      |    🤌 | `129292` | 捏手指          |
+|    😣 | `128547`  | 痛苦      |    🤏 | `129295` | 捏合的手势        |
+|    😖 | `128534`  | 困惑      |     ✌ | `9996`   | 胜利手势         |
+|    😫 | `128555`  | 累       |    🤞 | `129310` | 交叉的手指        |
+|    😩 | `128553`  | 累死了     |    🫰 | `129776` | 食指和拇指交叉的手    |
+|    🥺 | `129402`  | 恳求的脸    |    🤙 | `129305` | 给我打电话        |
+|    😢 | `128546`  | 哭       |    👉 | `128073` | 反手食指向右指      |
+|    😭 | `128557`  | 放声大哭    |    👈 | `128072` | 反手食指向左指      |
+|    😤 | `128548`  | 傲慢      |    🫶 | `129782` | 心形手          |
+|    😮 | `128558`  | 呼气      |    👆 | `128070` | 反手食指向上指      |
+|    😠 | `128544`  | 生气      |    👇 | `128071` | 反手食指向下指      |
+|    😡 | `128545`  | 怒火中烧    |    🫵 | `129781` | 食指指向观众       |
+|    🤬 | `129324`  | 嘴上有符号的脸 |    👍 | `128077` | 拇指向上         |
+|    🤯 | `129327`  | 爆炸头     |    👎 | `128078` | 拇指向下         |
+|    😳 | `128563`  | 脸红      |     ✊ | `9994`   | 举起拳头         |
+|    😶 | `128566`  | 迷茫      |    👏 | `128079` | 鼓掌           |
+|    🥵 | `129397`  | 脸发烧     |    🤝 | `129309` | 握手           |
+|    🥶 | `129398`  | 冷脸      |    🙏 | `128591` | 双手合十         |
+|    😱 | `128561`  | 吓死了     |    💪 | `128170` | 肌肉           |
+|    😨 | `128552`  | 害怕      |       |          |              |
