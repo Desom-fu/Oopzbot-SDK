@@ -367,6 +367,7 @@ class OneBotV11Adapter:
                     message_id=oopz_message_id,
                     target=self._resolve_user_id(target) if str(target).isdigit() else target,
                     area=area or None,
+                    channel="",
                 )
             else:
                 if not area or not channel:
