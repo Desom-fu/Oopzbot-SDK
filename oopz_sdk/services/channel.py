@@ -115,7 +115,7 @@ class Channel(BaseService):
 
         setting = await self.get_channel_setting_info(channel_id)
         editable_setting = models.ChannelEdit.from_setting(setting, area=area, channel=channel_id)
-        print(editable_setting)
+
         def _normalize_int_list(value: list[int], field_name: str) -> list[int]:
             if not isinstance(value, list):
                 raise ValueError(f"{field_name} must be a list")
