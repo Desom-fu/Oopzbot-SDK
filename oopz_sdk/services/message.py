@@ -263,10 +263,10 @@ class Message(BaseService):
     ) -> models.OperationResult:
         if message_id.strip() == "":
             raise ValueError("message_id is required for recall_private_message")
-        if channel.strip() == "":
-            raise ValueError("channel is required for recall_private_message")
         if target.strip() == "":
             raise ValueError("target is required for recall_private_message")
+        if channel.strip() == "":
+            channel = (await self.open_private_session(target)).session_id
         timestamp = timestamp or self.signer.timestamp_us()
         url_path = "/im/session/v1/recallIm"
         body = {
