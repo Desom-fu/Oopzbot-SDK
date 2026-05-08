@@ -237,7 +237,7 @@ def build_token_re(
     image_keys = [
         att.file_key
         for att in attachments
-        if isinstance(att, ImageAttachment) and getattr(att, "file_key", "")
+        if isinstance(att, ImageAttachment) and getattr(att, "file_key", "") # todo
     ]
 
     parts: list[str] = []

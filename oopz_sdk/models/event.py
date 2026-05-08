@@ -24,14 +24,14 @@ class Event(BaseModel):
     event_type: int
     raw: dict[str, Any] = Field(default_factory=dict)
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_common_fields(cls, data: Any) -> Any:
+    @staticmethod
+    def normalize_common_fields(data: Any, *, model_name: str = "Event") -> dict[str, Any]:
         if not isinstance(data, dict):
-            raise OopzApiError(f"invalid {cls.__name__} payload: expected dict", payload=data)
+            raise OopzApiError(f"invalid {model_name} payload: expected dict", payload=data)
 
         normalized = dict(data)
         normalized["event_name"] = str(normalized.get("event_name") or "")
+
         try:
             normalized["event_type"] = int(normalized.get("event_type") or 0)
         except (TypeError, ValueError):
@@ -39,7 +39,13 @@ class Event(BaseModel):
 
         raw = normalized.get("raw", {})
         normalized["raw"] = dict(raw) if isinstance(raw, dict) else {}
+
         return normalized
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_common_fields(cls, data: Any) -> Any:
+        return cls.normalize_common_fields(data, model_name=cls.__name__)
 
 
 def _merge_accessible_roles_keys(normalized: dict[str, Any]) -> list[Any]:
@@ -69,20 +75,20 @@ class UnknownEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         payload = normalized.get("payload", {})
         normalized["payload"] = dict(payload) if isinstance(payload, dict) else {}
         return normalized
 
 
 class MessageEvent(Event):
-    message: "Message | None" = None
+    message: "Message"
     is_private: bool = False
 
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         return {
             **data,
             **normalized,
@@ -95,7 +101,7 @@ class ServerIdEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         normalized["serverId"] = str(normalized.get("serverId") or "")
         return normalized
 
@@ -105,7 +111,7 @@ class HeartbeatEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         return normalized
 
 class FriendRequestEvent(Event):
@@ -119,7 +125,7 @@ class FriendRequestEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         normalized["person"] = str(normalized.get("person") or "")
         normalized["type"] = str(normalized.get("type") or "")
         normalized["name"] = str(normalized.get("name") or "")
@@ -138,7 +144,7 @@ class FriendDeleteEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         normalized["person"] = str(normalized.get("person") or "")
         return normalized
 
@@ -150,7 +156,7 @@ class AuthEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         try:
             normalized["code"] = int(normalized.get("code") or 0)
         except (TypeError, ValueError):
@@ -170,7 +176,7 @@ class MessageDeleteEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         normalized["area"] = str(normalized.get("area") or "")
         normalized["channel"] = str(normalized.get("channel") or "")
         normalized["messageId"] = str(normalized.get("messageId") or "")
@@ -189,7 +195,7 @@ class AreaDisableEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         normalized["ackId"] = str(normalized.get("ackId") or "")
         normalized["type"] = str(normalized.get("type") or "")
         normalized["area"] = str(normalized.get("area") or "")
@@ -220,7 +226,7 @@ class ChannelUpdateEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         normalized["area"] = str(normalized.get("area") or "")
         normalized["channel"] = str(normalized.get("channel") or "")
         normalized["name"] = str(normalized.get("name") or "")
@@ -272,7 +278,7 @@ class VoiceChannelPresenceEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         normalized["area"] = str(normalized.get("area") or "")
         normalized["channel"] = str(normalized.get("channel") or "")
         normalized["sound"] = str(normalized.get("sound") or "")
@@ -318,7 +324,7 @@ class ChannelCreateEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
 
         for key in (
                 "area",
@@ -386,7 +392,7 @@ class ChannelDeleteEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         normalized["area"] = str(normalized.get("area") or "")
         normalized["channel"] = str(normalized.get("channel") or "")
         normalized["ackId"] = str(normalized.get("ackId") or "")
@@ -400,7 +406,7 @@ class UserUpdateEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         normalized["person"] = str(normalized.get("person") or "")
         updates = normalized.get("updates", {})
         normalized["updates"] = dict(updates) if isinstance(updates, dict) else {}
@@ -414,7 +420,7 @@ class UserLoginStateEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         normalized["person"] = str(normalized.get("person") or "")
         normalized["type"] = str(normalized.get("type") or "")
         return normalized
@@ -431,7 +437,7 @@ class AreaUpdateEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
         for key in ("area", "code", "name", "avatar", "owner", "desc"):
             normalized[key] = str(normalized.get(key) or "")
         return normalized
@@ -453,7 +459,7 @@ class RoleChangedEvent(Event):
     @model_validator(mode="before")
     @classmethod
     def validate_and_normalize(cls, data: Any) -> Any:
-        normalized = Event.validate_common_fields(data)
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
 
         for key in ("ackId", "area", "type", "name", "description"):
             normalized[key] = str(normalized.get(key) or "")

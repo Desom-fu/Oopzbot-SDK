@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from oopz_sdk import models
 from oopz_sdk.config.settings import OopzConfig
 from oopz_sdk.models import MessageEvent
 from oopz_sdk.models.segment import Segment
@@ -48,7 +49,7 @@ class EventContext:
             **kwargs,
         )
 
-    async def send(self, *texts: str | Segment, **kwargs):
+    async def send(self, *texts: str | Segment, **kwargs) -> models.MessageSendResult:
         """
         在上下文中发送消息
         """

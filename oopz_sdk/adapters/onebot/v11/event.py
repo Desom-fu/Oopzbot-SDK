@@ -80,7 +80,7 @@ def _message_event(event: MessageEvent, *, self_id: str | int, ids: IdStore) -> 
             "font": 0,
             "sender": {
                 "user_id": user_ob_id,
-                "nickname": getattr(msg, "display_name", ""),
+                "nickname": getattr(msg, "display_name", ""),  # todo displayname问题
             },
             "extra": {
                 "oopz_user_id": msg.sender_id,
@@ -107,7 +107,7 @@ def _message_event(event: MessageEvent, *, self_id: str | int, ids: IdStore) -> 
         "font": 0,
         "sender": {
             "user_id": user_ob_id,
-            "nickname": getattr(msg, "display_name", ""),
+            "nickname": getattr(msg, "display_name", ""), # todo bug 这里的displayname是文件名
         },
         "extra": {
             "oopz_area_id": msg.area,

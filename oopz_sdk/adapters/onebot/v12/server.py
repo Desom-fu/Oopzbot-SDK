@@ -15,28 +15,6 @@ EventSink = Callable[[JsonDict], Awaitable[None] | None]
 logger = logging.getLogger(__name__)
 
 
-class OneBotV12AdapterProtocol(Protocol):
-    platform: str
-    self_id: str | int
-
-    def add_event_sink(self, sink: EventSink) -> None: ...
-
-    def remove_event_sink(self, sink: EventSink) -> None: ...
-
-    async def call_action(
-        self,
-        action: str,
-        params: Mapping[str, Any] | None = None,
-        *,
-        echo: Any = None,
-    ) -> Mapping[str, Any]: ...
-
-    async def call_action_payload(self, payload: Mapping[str, Any]) -> Mapping[str, Any]: ...
-
-    def failed_response(self, retcode: int, message: str, *, echo: Any = None) -> JsonDict: ...
-
-    def connect_event(self) -> JsonDict: ...
-
 
 @dataclass(slots=True)
 class OneBotV12ServerConfig:
@@ -72,7 +50,7 @@ class OneBotV12Server:
 
     def __init__(
         self,
-        adapter: OneBotV12AdapterProtocol,
+        adapter,
         config: OneBotV12ServerConfig | None = None,
     ) -> None:
         self.adapter = adapter

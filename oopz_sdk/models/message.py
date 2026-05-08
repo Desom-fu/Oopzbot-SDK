@@ -71,7 +71,7 @@ class Message(BaseModel):
     top_time: str = Field(default="", alias="topTime")
 
     duration: int = 0
-    display_name: str = Field(default="", alias="displayName")
+    display_name: str = Field(default="", alias="displayName") # 这个display name是用于媒体文件的, 不是用户信息
 
     preview_image: MediaInfo | None = Field(default=None, alias="previewImage")
     raw_video: MediaInfo | None = Field(default=None, alias="rawVideo")

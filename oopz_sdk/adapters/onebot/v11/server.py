@@ -18,28 +18,6 @@ WsRole = Literal["api", "event", "universal"]
 logger = logging.getLogger(__name__)
 
 
-class OneBotV11AdapterProtocol(Protocol):
-    self_id: int | str
-
-    def add_event_sink(self, sink: EventSink) -> None: ...
-
-    def remove_event_sink(self, sink: EventSink) -> None: ...
-
-    async def call_action(
-        self,
-        action: str,
-        params: Mapping[str, Any] | None = None,
-        *,
-        echo: Any = None,
-    ) -> Mapping[str, Any]: ...
-
-    async def call_action_payload(self, payload: Mapping[str, Any]) -> Mapping[str, Any]: ...
-
-    def failed_response(self, retcode: int, message: str, *, echo: Any = None) -> JsonDict: ...
-
-    def connect_event(self) -> JsonDict: ...
-
-
 @dataclass(slots=True)
 class OneBotV11ServerConfig:
     """OneBot v11 通信层配置。
@@ -85,7 +63,7 @@ class OneBotV11Server:
 
     def __init__(
         self,
-        adapter: OneBotV11AdapterProtocol,
+        adapter,
         config: OneBotV11ServerConfig | None = None,
     ) -> None:
         self.adapter = adapter
