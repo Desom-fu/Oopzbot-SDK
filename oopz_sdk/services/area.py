@@ -114,6 +114,48 @@ class AreaService(BaseService):
         self._set_cached_area_members(cache_key, normalized)
         return model
 
+    async def get_all_area_members(
+            self,
+            area: str,
+            *,
+            page_size: int = 100,
+            max_pages: int | None = None,
+    ) -> list[models.AreaMemberInfo]:
+        if area.strip() == "":
+            raise ValueError("area cannot be empty")
+
+        members: list[models.AreaMemberInfo] = []
+        offset_start = 0
+        page_count = 0
+
+        while True:
+            offset_end = offset_start + page_size - 1
+
+            page = await self.get_area_members(
+                area,
+                offset_start=offset_start,
+                offset_end=offset_end,
+            )
+
+            members.extend(page.members)
+
+            page_count += 1
+
+            if max_pages is not None and page_count >= max_pages:
+                break
+
+            # 如果这一页返回数量不足 page_size，说明没有下一页了
+            # if len(page.members) < page_size:
+            #     break
+
+            # 如果 total_count 可用，也可以用 total_count 判断是否结束
+            if page.total_count and len(members) >= page.total_count:
+                break
+
+            offset_start += page_size
+
+        return members
+
     async def get_joined_areas(
         self
     ) -> List[models.JoinedAreaInfo]:

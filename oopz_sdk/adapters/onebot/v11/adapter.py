@@ -142,7 +142,7 @@ class OneBotV11Adapter:
         if isinstance(event, HeartbeatEvent) or isinstance(event, ServerIdEvent):
             return {}
 
-        payload = to_v11_event(event, self_id=self.self_oopz_id, ids=self.ids)
+        payload = await to_v11_event(event, self_id=self.self_oopz_id, ids=self.ids, bot=self.oopz_bot)
         self._save_message_event_mapping(payload)
         self._event_queue.append(payload)
         logger.debug("emit onebot v11 event: %s", payload)

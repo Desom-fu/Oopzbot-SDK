@@ -1,4 +1,4 @@
-from .area import JoinedAreaInfo, AreaInfo, ChannelGroupInfo, AreaMembersPage, AreaUserDetail, RoleInfo
+from .area import JoinedAreaInfo, AreaInfo, ChannelGroupInfo, AreaMembersPage, AreaUserDetail, RoleInfo, AreaMemberInfo
 from .attachment import (
     Attachment,
     AudioAttachment,
@@ -56,5 +56,6 @@ __all__ = [
     "normalize_message_parts",
     "FriendshipRequest",
     "UserRemarkNamesResponse",
-    "MessageEmojiItem"
+    "MessageEmojiItem",
+    "AreaMemberInfo"
 ]

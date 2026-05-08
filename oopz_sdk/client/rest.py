@@ -8,13 +8,14 @@ from oopz_sdk.services.media import Media
 from oopz_sdk.services.person import Person
 from oopz_sdk.services.message import Message
 from oopz_sdk.services.moderation import Moderation
+from oopz_sdk.state.cache import CacheStore
 from oopz_sdk.transport.http import HttpTransport
 
 
 class OopzRESTClient:
     """REST 总入口，只负责共享连接和挂载各分类 service。"""
 
-    def __init__(self, config: OopzConfig, *, bot=None):
+    def __init__(self, config: OopzConfig, *, bot=None, cache=None):
         # `bot` 是外部可选入参：当被 OopzBot 构造时会把自己传进来；
         # 纯 REST 场景下调用方不传，owner 就是 OopzRESTClient 自己。
         # 无论哪种情况，owner 都持有 messages/media/... 属性，可以供 service 间互相取用。
@@ -32,13 +33,14 @@ class OopzRESTClient:
         self.signer = Signer(config)
         self.transport = HttpTransport(config, self.signer)
         owner = bot if bot is not None else self
-        self.messages = Message(owner, config, self.transport, self.signer)
-        self.media = Media(owner, config, self.transport, self.signer)
-        self.areas = AreaService(owner, config, self.transport, self.signer)
-        self.channels = Channel(owner, config, self.transport, self.signer)
-        self.person = Person(owner, config, self.transport, self.signer)
+        cache_store = cache if cache is not None else CacheStore(config)
+        self.messages = Message(owner, config, self.transport, self.signer, cache_store)
+        self.media = Media(owner, config, self.transport, self.signer, cache_store)
+        self.areas = AreaService(owner, config, self.transport, self.signer, cache_store)
+        self.channels = Channel(owner, config, self.transport, self.signer, cache_store)
+        self.person = Person(owner, config, self.transport, self.signer, cache_store)
         self.members = self.person
-        self.moderation = Moderation(owner, config, self.transport, self.signer)
+        self.moderation = Moderation(owner, config, self.transport, self.signer, cache_store)
 
     async def start(self) -> None:
         await self.transport.start()

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from typing import Optional
-
 from oopz_sdk import models
 from oopz_sdk.exceptions import OopzApiError
 
@@ -14,50 +13,103 @@ logger = logging.getLogger(__name__)
 class Person(BaseService):
     """用户相关能力：个人资料、成员搜索、身份组分配等。"""
 
-    async def get_person_infos_batch(self, uids: list[str]) -> list[models.UserInfo]:
-        """批量获取用户基本信息。"""
+    async def get_person_infos_batch(
+            self,
+            uids: list[str],
+            *,
+            force: bool = False,
+    ) -> list[models.UserInfo]:
+        """批量获取用户基本信息。
+
+        Args:
+            uids: 用户 ID 列表。
+            force: 是否跳过缓存读取并强制请求接口。请求成功后仍会更新缓存。
+        """
         if not uids:
             return []
 
+        # 对传入的uid进行处理
+        ordered_uids: list[str] = []
+        # 去重
+        seen: set[str] = set()
+
+        for uid in uids:
+            uid = str(uid or "").strip()
+            if not uid or uid in seen:
+                continue
+            seen.add(uid)
+            ordered_uids.append(uid)
+
+        if not ordered_uids:
+            return []
+
+        bypassed_uid: dict[str, models.UserInfo] = {}
+        missing_uids: list[str] = []
+
+        if not force:
+            for uid in ordered_uids:
+                cached = self.cache.get_person(uid)
+                if cached is not None:
+                    bypassed_uid[uid] = cached
+                else:
+                    missing_uids.append(uid)
+        else:
+            # 如果force为True, 直接请求全部
+            missing_uids = ordered_uids
+
         url_path = "/client/v1/person/v1/personInfos"
         batch_size = 30
-        result: list[models.UserInfo] = []
 
-        for i in range(0, len(uids), batch_size):
-            batch = uids[i: i + batch_size]
+        for i in range(0, len(missing_uids), batch_size):
+            batch = missing_uids[i: i + batch_size]
             body = {"persons": batch, "commonIds": []}
+
             data = await self._request_data("POST", url_path, body=body)
+
             if not isinstance(data, list):
                 raise OopzApiError(
                     "person infos response format error: expected list",
                     payload=data,
                 )
+
             for item in data:
-                result.append(models.UserInfo.from_api(item))
+                user = models.UserInfo.from_api(item)
 
-        return result
+                if not user.uid:
+                    continue
 
-    async def get_person_info(self, uid: Optional[str] = None) -> models.UserInfo:
+                bypassed_uid[user.uid] = user
+                self.cache.set_person(user.uid, user)
+
+        return [
+            bypassed_uid[uid]
+            for uid in ordered_uids
+            if uid in bypassed_uid
+        ]
+
+    async def get_person_info(
+            self,
+            uid: Optional[str] = None,
+            *,
+            force=False
+    ) -> models.UserInfo:
         """获取指定用户的基本信息，默认当前登录用户。"""
         uid = uid or getattr(self._config, "person_uid", None)
         if not uid:
             raise ValueError("uid is required for get_person_info()")
 
-        url_path = "/client/v1/person/v1/personInfos"
-        body = {"persons": [uid], "commonIds": []}
-        data = await self._request_data("POST", url_path, body=body)
+        users = await self.get_person_infos_batch(
+            [str(uid)],
+            force=force
+        )
 
-        if not isinstance(data, list):
-            raise OopzApiError(
-                "person detail response format error: expected list",
-                payload=data,
-            )
-        if not data:
+        if not users:
             raise OopzApiError(
                 "person detail not found",
                 payload={"uid": uid},
             )
-        return models.UserInfo.from_api(data[0])
+
+        return users[0]
 
     async def get_person_detail_full(self, uid: str) -> models.Profile:
         """获取他人完整详细资料（含 VIP、IP 属地等）。"""
@@ -68,15 +120,35 @@ class Person(BaseService):
         data = await self._request_data("GET", url_path, params={"uid": uid})
         return models.Profile.from_api(data)
 
-    async def get_self_detail(self) -> models.Profile:
-        """获取当前登录用户的完整详细资料。"""
+    async def get_self_detail(
+            self,
+            *,
+            force: bool = False,
+    ) -> models.Profile:
+        """获取当前登录用户完整资料。
+
+        默认优先使用 identity cache；force=True 时强制从接口刷新。
+        """
+        if not force:
+            cached = self.cache.get_identity()
+            if cached is not None:
+                return cached
+
+        return await self.fetch_self_detail()
+
+    async def fetch_self_detail(self) -> models.Profile:
+        """从接口获取当前登录用户完整资料，并更新 identity cache。"""
         uid = getattr(self._config, "person_uid", None)
         if not uid:
-            raise ValueError("person_uid is required for get_self_detail()")
+            raise ValueError("person_uid is required for fetch_self_detail()")
 
         url_path = "/client/v1/person/v2/selfDetail"
         data = await self._request_data("GET", url_path, params={"uid": uid})
-        return models.Profile.from_api(data)
+
+        profile = models.Profile.from_api(data)
+        self.cache.set_identity(profile)
+
+        return profile
 
     async def get_level_info(self) -> models.UserLevelInfo:
         """获取当前用户等级、积分信息。"""
