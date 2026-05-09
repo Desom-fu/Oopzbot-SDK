@@ -520,11 +520,11 @@ class Message(BaseService):
                                              interaction_sticker_ids: models.VoiceInteractionSticker | str | list[
                                          models.VoiceInteractionSticker | str]) -> models.OperationResult:
         if area.strip() == "":
-            raise ValueError("area is required for send_voice_interaction()")
+            raise ValueError("area is required for send_voice_channel_interaction()")
         if channel.strip() == "":
-            raise ValueError("channel is required for send_voice_interaction()")
+            raise ValueError("channel is required for send_voice_channel_interaction()")
         if target.strip() == "":
-            raise ValueError("target is required for send_voice_interaction()")
+            raise ValueError("target is required for send_voice_channel_interaction()")
 
         if isinstance(interaction_sticker_ids, (str, models.VoiceInteractionSticker)):
             interaction_sticker_ids = [interaction_sticker_ids]
@@ -532,13 +532,13 @@ class Message(BaseService):
         if not isinstance(interaction_sticker_ids, list):
             raise TypeError(
                 "interaction_sticker_ids must be a list[VoiceInteractionSticker | str], "
-                "VoiceInteractionSticker, or str for send_voice_interaction()"
+                "VoiceInteractionSticker, or str for send_voice_channel_interaction()"
             )
 
         if not all(isinstance(i, (str, models.VoiceInteractionSticker)) for i in interaction_sticker_ids):
             raise TypeError(
                 "interaction_sticker_ids must contain only VoiceInteractionSticker or str values "
-                "for send_voice_interaction()"
+                "for send_voice_channel_interaction()"
             )
 
         sticker_ids = [
@@ -547,7 +547,7 @@ class Message(BaseService):
         ]
 
         if not sticker_ids:
-            raise ValueError("interaction_sticker_ids cannot be empty for send_voice_interaction()")
+            raise ValueError("interaction_sticker_ids cannot be empty for send_voice_channel_interaction()")
 
         result = await self._request_data(
             "POST",
