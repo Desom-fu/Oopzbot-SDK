@@ -516,8 +516,8 @@ class Message(BaseService):
         return [models.MessageEmojiItem.from_api(d) for d in data]
 
 
-    async def send_voice_interaction(self, area: str, channel: str, target: str,
-                                     interaction_sticker_ids: models.VoiceInteractionSticker | str | list[
+    async def send_voice_channel_interaction(self, area: str, channel: str, target: str,
+                                             interaction_sticker_ids: models.VoiceInteractionSticker | str | list[
                                          models.VoiceInteractionSticker | str]) -> models.OperationResult:
         if area.strip() == "":
             raise ValueError("area is required for send_voice_interaction()")
