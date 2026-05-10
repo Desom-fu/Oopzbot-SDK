@@ -26,7 +26,9 @@ from oopz_sdk.config.constants import (
     EVENT_USER_LEAVE_VOICE_CHANNEL,
     EVENT_USER_LOGIN_STATE_CHANGED,
     EVENT_USER_UPDATE,
-    EVENT_FRIEND_REQUEST, EVENT_FRIEND_DELETE,
+    EVENT_FRIEND_REQUEST,
+    EVENT_FRIEND_DELETE,
+    EVENT_MESSAGE_REACTION,
 )
 from oopz_sdk.exceptions.parse import OopzParseError
 from oopz_sdk.models.event import (
@@ -46,7 +48,9 @@ from oopz_sdk.models.event import (
     UserLoginStateEvent,
     UserUpdateEvent,
     VoiceChannelPresenceEvent,
-    FriendRequestEvent, FriendDeleteEvent,
+    FriendRequestEvent,
+    FriendDeleteEvent,
+    MessageReactionEvent
 )
 from oopz_sdk.models.message import Message
 
@@ -87,7 +91,7 @@ class EventParser:
         EVENT_PRIVATE_MESSAGE_EDIT: EventSpec("message.private.edit", MessageEvent, is_message=True, is_private=True),
         EVENT_MESSAGE_DELETE: EventSpec("recall", MessageDeleteEvent),
         EVENT_PRIVATE_MESSAGE_DELETE: EventSpec("recall.private", MessageDeleteEvent),
-
+        EVENT_MESSAGE_REACTION: EventSpec("message.reaction", MessageReactionEvent),
         # 管理
         EVENT_CHANNEL_VOICE_BAN: EventSpec("moderation.voice_ban", AreaDisableEvent),
         EVENT_CHANNEL_MESSAGE_BAN: EventSpec("moderation.text_ban", AreaDisableEvent),

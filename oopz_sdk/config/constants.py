@@ -49,6 +49,8 @@ EVENT_USER_LOGIN_STATE_CHANGED = 27 # 用户登录/登出事件
 
 EVENT_AREA_UPDATE = 28 # 域信息发生改变
 
+EVENT_MESSAGE_REACTION = 32 # 添加或者删除消息的reaction
+
 EVENT_ROLE_CHANGED = 52 # 身份组信息发生改变
 EVENT_PRIVATE_MESSAGE_EDIT = 56 # 私聊消息编辑事件
 EVENT_MESSAGE_EDIT = 57 # 群聊消息编辑事件

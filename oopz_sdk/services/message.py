@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional, Any, List
+from typing import Optional, Any, List, Literal
 
 from oopz_sdk import models
 from oopz_sdk.exceptions import OopzApiError
@@ -364,55 +364,130 @@ class Message(BaseService):
         })
         return models.OperationResult.from_api(data)
 
-    async def add_channel_reaction(self, message_id: str, area: str, channel: str,
-                                   emoji: str) -> models.OperationResult:
-        """
-        给频道消息添加表情反应。
-        """
-        if area.strip() == "":
-            raise ValueError("area is required for add_reaction")
-        if channel.strip() == "":
-            raise ValueError("channel is required for add_reaction")
-        if emoji.strip() == "":
-            raise ValueError("emoji is required for add_reaction")
+    async def _send_reaction(
+            self,
+            *,
+            scope: Literal["channel", "private"],
+            message_id: str,
+            channel: str,
+            emoji: str,
+            reaction_type: Literal["REPLY", "WITHDRAW"],
+            area: str = "",
+            target: str = "",
+    ) -> models.OperationResult:
+        """发送 reaction 操作：频道 / 私信共用。"""
         if message_id.strip() == "":
-            raise ValueError("message_id is required for add_reaction")
+            raise ValueError("message_id is required for reaction")
+        if channel.strip() == "":
+            raise ValueError("channel is required for reaction")
+        if emoji.strip() == "":
+            raise ValueError("emoji is required for reaction")
 
-        result = await self._request_data("POST", "/im/session/v1/gimReaction", body={
-            "anchor": "",
-            "area": area,
-            "channel": channel,
-            "emoji": normalize_reaction_emoji(emoji),
-            "messageId": message_id,
-            "target": "",
-            "type": "REPLY"
-        })
+        if scope == "channel":
+            if area.strip() == "":
+                raise ValueError("area is required for channel reaction")
+
+            endpoint = "/im/session/v1/gimReaction"
+            anchor = ""
+            body_target = ""
+
+        elif scope == "private":
+            if target.strip() == "":
+                raise ValueError("target is required for private reaction")
+
+            endpoint = "/im/session/v1/imReaction"
+            anchor = target
+            body_target = target
+
+        else:
+            raise ValueError("scope must be 'channel' or 'private'")
+
+        result = await self._request_data(
+            "POST",
+            endpoint,
+            body={
+                "anchor": anchor,
+                "area": area,
+                "channel": channel,
+                "emoji": normalize_reaction_emoji(emoji),
+                "messageId": message_id,
+                "target": body_target,
+                "type": reaction_type,
+            },
+        )
         return models.OperationResult.from_api(result)
 
-    async def add_private_reaction(self, message_id: str, channel: str, target: str, emoji: str,
-                                   area="") -> models.OperationResult:
-        """
-        给私信消息添加表情反应。
-        """
-        if target.strip() == "":
-            raise ValueError("target is required for add_reaction")
-        if channel.strip() == "":
-            raise ValueError("channel is required for add_reaction")
-        if emoji.strip() == "":
-            raise ValueError("emoji is required for add_reaction")
-        if message_id.strip() == "":
-            raise ValueError("message_id is required for add_reaction")
+    async def add_channel_reaction(
+            self,
+            message_id: str,
+            area: str,
+            channel: str,
+            emoji: str,
+    ) -> models.OperationResult:
+        """给频道消息添加表情反应。"""
+        return await self._send_reaction(
+            scope="channel",
+            message_id=message_id,
+            area=area,
+            channel=channel,
+            emoji=emoji,
+            reaction_type="REPLY",
+        )
 
-        result = await self._request_data("POST", "/im/session/v1/imReaction", body={
-            "anchor": target,
-            "area": area,
-            "channel": channel,
-            "emoji": normalize_reaction_emoji(emoji),
-            "messageId": message_id,
-            "target": target,
-            "type": "REPLY"
-        })
-        return models.OperationResult.from_api(result)
+    async def withdraw_channel_reaction(
+            self,
+            message_id: str,
+            area: str,
+            channel: str,
+            emoji: str,
+    ) -> models.OperationResult:
+        """撤回频道消息表情反应。"""
+        return await self._send_reaction(
+            scope="channel",
+            message_id=message_id,
+            area=area,
+            channel=channel,
+            emoji=emoji,
+            reaction_type="WITHDRAW",
+        )
+
+    async def add_private_reaction(
+            self,
+            message_id: str,
+            channel: str,
+            target: str,
+            emoji: str,
+            area: str = "",
+    ) -> models.OperationResult:
+        """给私信消息添加表情反应。"""
+        return await self._send_reaction(
+            scope="private",
+            message_id=message_id,
+            area=area,
+            channel=channel,
+            target=target,
+            emoji=emoji,
+            reaction_type="REPLY",
+        )
+
+    async def withdraw_private_reaction(
+            self,
+            message_id: str,
+            channel: str,
+            target: str,
+            emoji: str,
+            area: str = "",
+    ) -> models.OperationResult:
+        """撤回私信消息表情反应。"""
+        return await self._send_reaction(
+            scope="private",
+            message_id=message_id,
+            area=area,
+            channel=channel,
+            target=target,
+            emoji=emoji,
+            reaction_type="WITHDRAW",
+        )
 
     async def get_channel_reaction_persons(self, message_id: str, channel: str, emoji: str, page: int = 1,
                                            page_size: int = 4) -> list[str]:
