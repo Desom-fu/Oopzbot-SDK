@@ -328,8 +328,6 @@ class OopzBot:
     async def _handle_ws_message(self, raw: str) -> None:
         try:
             event = self.parser.parse(raw)
-            import json
-            print(json.dumps(event.model_dump(), ensure_ascii=False, indent=2))
             ctx = self._make_context(event=event)
 
             if isinstance(event, MessageEvent) and self._should_ignore_self_message(event.message):
