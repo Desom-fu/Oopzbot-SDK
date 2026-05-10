@@ -8,8 +8,8 @@ class CacheStore:
     def __init__(self, config):
         self.identity: Optional[models.Profile] = None
         self.userinfo = TTLCache(
-            max_entries=getattr(config, "person_cache_max_entries", 5000),
-            ttl=getattr(config, "person_cache_ttl", 1800.0),
+            max_entries=getattr(config, "userinfo_cache_max_entries", 5000),
+            ttl=getattr(config, "userinfo_cache_ttl", 1800.0),
         )
 
         self.area_channels = TTLCache(
@@ -18,7 +18,7 @@ class CacheStore:
         )
 
         self.person_profiles = TTLCache(
-            max_entries=getattr(config, "person_profile_cache_max_entries", 3000),
+            max_entries=getattr(config, "person_profiles_cache_max_entries", 3000),
             ttl=getattr(config, "person_profile_cache_ttl", 1800.0),
         )
 
@@ -33,7 +33,7 @@ class CacheStore:
             ttl=getattr(
                 config,
                 "area_members_page_cache_ttl",
-                getattr(config, "area_members_cache_ttl", 10.0),
+                10.0,
             ),
         )
 

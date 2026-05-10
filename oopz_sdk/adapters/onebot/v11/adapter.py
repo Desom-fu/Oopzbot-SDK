@@ -449,13 +449,13 @@ class OneBotV11Adapter:
     async def get_stranger_info(self, params: Mapping[str, Any]) -> JsonDict:
         user_id = require_int(params, "user_id")
         uid = self._resolve_user_id(user_id)
-        info: models.UserInfo = await self.oopz_bot.person.get_person_info(uid)
+        info: models.Profile = await self.oopz_bot.person.get_person_detail_full(uid)
         return {
             "user_id": user_id,
             "nickname": info.name,
             "sex": "unknown",
             "age": 0,
-            "extra": model_to_userinfo_extra(info)
+            "extra": model_to_profile_extra(info)
         }
 
     async def get_friend_list(self, params: Mapping[str, Any] | None = None) -> list[JsonDict]:
