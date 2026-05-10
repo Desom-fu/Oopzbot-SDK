@@ -552,10 +552,12 @@ class OneBotV11Adapter:
             for role in area_info.role_list
         }
 
-        ob_role = self._to_v11_group_role(
-            area_role_dict=area_role_dict,
-            role_source=aud.roles,
-        )
+        ob_role = "member"
+        if aud.roles:
+            owned_role_ids = [role.role_id for role in aud.roles]
+            for role_id in owned_role_ids:
+                if area_role_dict.get(role_id) == "域主":
+                    ob_role = "owner"
 
         response = {
             "group_id": group_id,
@@ -864,47 +866,6 @@ class OneBotV11Adapter:
             )
         )
 
-    def _extract_area_role_ids(self, value: Any) -> list[int]:
-        role_ids: list[int] = []
-
-        if value is None:
-            return role_ids
-
-        if isinstance(value, int):
-            return [value]
-
-        if isinstance(value, str):
-            if value.isdigit():
-                return [int(value)]
-            return []
-
-        if isinstance(value, list):
-            for item in value:
-                role_ids.extend(self._extract_area_role_ids(item))
-            return role_ids
-
-        role_id = getattr(value, "role_id", None)
-        if role_id is not None:
-            try:
-                role_ids.append(int(role_id))
-            except (TypeError, ValueError):
-                pass
-
-        return role_ids
-
-    def _to_v11_group_role(
-            self,
-            *,
-            area_role_dict: dict[int, str],
-            role_source: Any,
-    ) -> str:
-        role_ids = self._extract_area_role_ids(role_source)
-
-        for role_id in role_ids:
-            if area_role_dict.get(role_id) == "域主":
-                return "owner"
-
-        return "member"
 
 def truthy(value: Any) -> bool:
     return value is True or str(value).lower() in {"true", "1", "yes"}
