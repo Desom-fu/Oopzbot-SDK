@@ -6,6 +6,7 @@ from typing import Any
 
 from .context import EventContext
 from .registry import EventRegistry
+from ..state.cache import CacheStore
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class EventDispatcher:
         self.registry = registry
 
     async def dispatch(self, event_name: str, event: Any, context: EventContext) -> None:
+        await self._update_cache_before_dispatch(event_name, event, context)
         handlers = self.registry.get_handlers(event_name)
 
         for handler in handlers:
@@ -60,3 +62,30 @@ class EventDispatcher:
             return handler(context, event)
 
         return handler(context, event)
+
+    @staticmethod
+    async def _update_cache_before_dispatch(
+            event_name: str,
+            event: Any,
+            context: EventContext,
+    ) -> None:
+        bot = context.bot
+        cache: CacheStore = context.bot.cache
+        if cache is None:
+            return
+        # 用户资料更新：清理用户缓存
+        if event_name == "user.update":
+            uid = getattr(event, "person", None)
+
+            if uid == bot.config.person_uid:
+                cache.invalidate_identity()
+            if uid:
+                cache.invalidate_userinfo(str(uid))
+                cache.invalidate_person_profile(str(uid))
+
+
+        # 频道创建 / 更新 / 删除：清理 area_channels
+        elif event_name in {"channel.create", "channel.update", "channel.delete"}:
+            area = getattr(event, "area", None) or getattr(event, "area_id", None)
+            if area:
+                cache.invalidate_area_channels(str(area))

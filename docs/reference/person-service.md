@@ -5,7 +5,7 @@
 
 ---
 
-## `get_person_info(uid=None)`
+## `get_person_info(uid=None, force=False)`
 
 获取指定用户的基本信息。
 
@@ -30,7 +30,8 @@ print(user.uid, user.name)
 
     | 参数 | 类型 | 必填 | 默认值 | 说明 |
     | --- | --- | --- | --- | --- |
-    | `uid` | `str \| None` | 否 | `None` | 用户 UID。不传时使用当前配置中的 `person_uid`。 |
+    | `uid` | `str | None` | 否 | `None` | 用户 UID。不传时使用当前配置中的 `person_uid`。 |
+    | `force` | `bool` | 否 | 是否强制重新获取并更新缓存 |    
 
 === "返回值"
 
@@ -59,13 +60,17 @@ print(user.uid, user.name)
     | `uid` | `str` | `""` | 用户 UID。 |
     | `user_common_id` | `str` | `""` | 用户 common ID。 |
 
-=== "异常"
+=== "缓存说明"
 
-    | 场景 | 异常 |
-    | --- | --- |
-    | 没有传 `uid`，并且配置中没有 `person_uid` | `ValueError` |
-    | 接口返回不是列表 | `OopzApiError` |
-    | 接口返回空列表 | `OopzApiError` |
+    `get_person_info()` 带短期缓存。
+
+    相关配置：
+
+    | 配置 | 默认值 | 说明 |
+    | --- | --- | --- |
+    | `config.userinfo_cache_ttl` | `1800.0` | 域成员缓存有效期，单位为秒。 |
+    | `config.userinfo_cache_max_entries` | `5000` | 最大缓存条目数；小于等于 `0` 表示关闭缓存。 |
+
 
 ---
 
@@ -103,10 +108,9 @@ for user in users:
 ---
 
 
+## `get_person_detail_full(uid, force=False)`
 
-## `get_person_detail_full(uid)`
-
-获取指定用户的完整资料。
+获取指定用户的完整资料, 会使用缓存。
 
 相比 `get_person_info()`，该方法返回的信息更完整，例如 IP 属地、VIP 信息、关注数、粉丝数、主页装饰、游戏 / 音乐状态等。
 
@@ -123,6 +127,7 @@ print(profile.ip_address)
     | 参数 | 类型 | 必填 | 说明 |
     | --- | --- | --- | --- |
     | `uid` | `str` | 是 | 用户 UID，不能为空。 |
+    | `force` | `bool` | 否 | 是否强制重新获取并更新缓存 |
 
 === "返回值"
 
@@ -197,18 +202,23 @@ print(profile.ip_address)
     | `wx_nickname` | `str` | `""` | 微信昵称 |
     | `wx_union_id` | `str` | `""` | 微信 UnionID |
 
-=== "异常"
+=== "缓存说明"
 
-    | 场景 | 异常 |
-    | --- | --- |
-    | `uid` 为空 | `ValueError` |
-    | 接口返回无法解析为 `Profile` | `OopzApiError` 或 Pydantic 校验异常 |
+    `get_person_detail_full()` 带短期缓存。
+
+    相关配置：
+
+    | 配置 | 默认值 | 说明 |
+    | --- | --- | --- |
+    | `config.person_profile_cache_ttl` | `1800.0` | 域成员缓存有效期，单位为秒。 |
+    | `config.person_profiles_cache_max_entries` | `3000` | 最大缓存条目数；小于等于 `0` 表示关闭缓存。 |
+
 
 ---
 
 ## `get_self_detail()`
 
-获取当前登录用户的完整资料。
+获取当前登录用户的完整资料, 默认从缓存中获取
 
 该方法使用配置中的 `person_uid` 请求当前用户详情。
 
@@ -222,7 +232,9 @@ print(profile.user_level)
 
 === "参数"
 
-    无参数。
+    | 参数 | 类型 | 必填 | 说明 |
+    | --- | --- | --- | --- |
+    | `force` | `bool` | 否 | 是否强制重新获取并更新缓存 |
 
 === "返回值"
 
@@ -239,6 +251,37 @@ print(profile.user_level)
     | 配置中没有 `person_uid` | `ValueError` |
     | 接口返回无法解析为 `Profile` | `OopzApiError` 或 Pydantic 校验异常 |
 
+---
+
+
+## `update_self_introduction(introduction)`
+
+更新bot自己的个人介绍
+
+```python
+
+await bot.person.update_self_introduction("新的个人介绍")
+
+```
+
+=== "参数"
+
+    | 参数 | 类型 | 必填 | 说明 |
+    | --- | --- | --- | --- |
+    | `introduction` | `str` | 否 | 修改的个人介绍, 为空为清除个人介绍 |
+
+=== "返回值"
+
+    返回：`OperationResult`。
+
+    对应模型：`oopz_sdk.models.OperationResult`
+
+    | 字段 | 类型 | 默认值 | 说明 |
+    | --- | --- | --- | --- |
+    | `ok` | `bool` | `True` | 操作是否成功。 |
+    | `message` | `str` | `""` | 操作消息或错误信息。 |
+
+    
 ---
 
 ## `get_level_info()`

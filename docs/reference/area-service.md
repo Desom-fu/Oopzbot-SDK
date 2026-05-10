@@ -63,8 +63,57 @@ for member in page.members:
 
     | 配置 | 默认值 | 说明 |
     | --- | --- | --- |
-    | `config.area_members_cache_ttl` | `15.0` | 域成员缓存有效期，单位为秒。 |
-    | `config.cache_max_entries` | `200` | 最大缓存条目数；小于等于 `0` 表示关闭缓存。 |
+    | `config.area_members_page_cache_ttl` | `15.0` | 域成员缓存有效期，单位为秒。 |
+    | `config.area_members_page_cache_max_entries` | `200` | 最大缓存条目数；小于等于 `0` 表示关闭缓存。 |
+
+---
+
+
+## `get_all_area_members(area, page_size=100, max_pages=None, force=False)`
+
+获取所有域中的成员，带短期缓存。
+
+```python
+page = await bot.areas.get_area_members(
+    area="域 ID",
+)
+
+print(page.total_count)
+
+for member in page.members:
+    print(member.uid, member.role, member.online)
+```
+
+=== "参数"
+
+    | 参数 | 类型 | 必填 | 默认值 | 说明 |
+    | --- | --- | --- | --- | --- |
+    | `area` | `str` | 是 | - | 域 ID，不能为空。 |
+    | `page_size` | `int` | 否 | `100` | 每次请求域成员的数量 |
+    | `max_pages` | `int | None` | 否 | None | 最大请求的次数 |
+    | `force` | `bool` | 否 | 是否强制重新获取并更新缓存 |
+
+
+=== "返回值"
+
+    返回：`list[models.AreaMemberInfo]`。
+
+    对应模型：`AreaMemberInfo` 
+
+    | 字段 | 类型 | 说明 |
+    | --- | --- | --- |
+    | `uid` | `str` | 用户id |
+    | `display_type` | `str` | 显示状态类型, 例如`MUSIC`/`GAME` |
+    | `online` | `int` | 用户在线状态 |
+    | `playing_state` | `str` | 用户游玩/听歌状态 |
+    | `role` | `int` | 域角色id |
+    | `role_sort` | `int` |  |
+    | `role_status` | `int` |  |
+
+
+=== "缓存说明"
+
+    `get_all_area_members` 内部调用 `get_area_members()`, 带短期缓存。
 
 ---
 
@@ -464,7 +513,7 @@ print(result.ok)
 
 ---
 
-## `get_user_area_nicknames(area, uids)`
+## `get_user_area_nicknames(area, uids, force=False)`
 
 批量获取一组用户在指定域内的昵称（域内备注名）。
 
@@ -484,18 +533,23 @@ for uid, nickname in nicknames.items():
     | --- | --- | --- | --- |
     | `area` | `str` | 是 | 域 ID，不能为空。 |
     | `uids` | `list[str]` | 是 | 要查询的用户 UID 列表，不能为空。 |
+    | `force` | `bool` | 否 | 是否强制重新获取并更新缓存 |
 
 === "返回值"
 
     返回：`dict[str, str]`，键是 UID，值是该用户在域内的昵称。如果用户在该域内没有自定义昵称，对应值通常为空字符串。
 
-=== "异常"
+=== "缓存说明"
 
-    | 场景 | 异常 |
-    | --- | --- |
-    | `area` 为空 | `ValueError` |
-    | `uids` 为空列表 | `ValueError` |
-    | 接口返回不是 dict 或缺少 `nicknames` 字段 | `OopzApiError` |
+    `get_area_members()` 带短期缓存。
+
+    相关配置：
+
+    | 配置 | 默认值 | 说明 |
+    | --- | --- | --- |
+    | `config.area_user_nickname_cache_ttl` | `300.0` | 域成员缓存有效期，单位为秒。 |
+    | `config.area_user_nickname_cache_max_entries` | `20000` | 最大缓存条目数；小于等于 `0` 表示关闭缓存。 |
+
 
 ---
 

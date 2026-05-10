@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from oopz_sdk import OopzBot
 from oopz_sdk.config.constants import EVENT_PRIVATE_MESSAGE_DELETE
 from oopz_sdk.models.event import Event, MessageDeleteEvent, MessageEvent, FriendRequestEvent
 
@@ -18,9 +19,9 @@ from .types import (
 )
 
 
-def to_v11_event(event: Any, *, self_id: str | int, ids: IdStore) -> JsonDict:
+async def to_v11_event(event: Any, *, self_id: str | int, ids: IdStore, bot: OopzBot) -> JsonDict:
     if isinstance(event, MessageEvent):
-        return _message_event(event, self_id=self_id, ids=ids)
+        return await _message_event(event, self_id=self_id, ids=ids, bot=bot)
 
     if isinstance(event, MessageDeleteEvent):
         return _delete_event(event, self_id=self_id, ids=ids)
@@ -50,7 +51,7 @@ def to_v11_event(event: Any, *, self_id: str | int, ids: IdStore) -> JsonDict:
     }
 
 
-def _message_event(event: MessageEvent, *, self_id: str | int, ids: IdStore) -> JsonDict:
+async def _message_event(event: MessageEvent, *, self_id: str | int, ids: IdStore, bot: OopzBot) -> JsonDict:
     msg = event.message
     if msg is None:
         raise ValueError("MessageEvent.message is required")
@@ -65,7 +66,7 @@ def _message_event(event: MessageEvent, *, self_id: str | int, ids: IdStore) -> 
             message_id=msg.message_id,
         )
     ).number
-
+    userinfo = await bot.person.get_person_info(msg.sender_id)
     if event.is_private:
         return {
             "time": parse_oopz_timestamp(msg.timestamp),
@@ -80,7 +81,7 @@ def _message_event(event: MessageEvent, *, self_id: str | int, ids: IdStore) -> 
             "font": 0,
             "sender": {
                 "user_id": user_ob_id,
-                "nickname": getattr(msg, "display_name", ""),
+                "nickname": userinfo.name,
             },
             "extra": {
                 "oopz_user_id": msg.sender_id,
@@ -92,7 +93,7 @@ def _message_event(event: MessageEvent, *, self_id: str | int, ids: IdStore) -> 
     group_ob_id = ids.createId(
         make_group_source(area=msg.area, channel=msg.channel or msg.area)
     ).number
-
+    userinfo = await bot.person.get_person_info(msg.sender_id)
     return {
         "time": parse_oopz_timestamp(msg.timestamp),
         "self_id": self_ob_id,
@@ -107,7 +108,7 @@ def _message_event(event: MessageEvent, *, self_id: str | int, ids: IdStore) -> 
         "font": 0,
         "sender": {
             "user_id": user_ob_id,
-            "nickname": getattr(msg, "display_name", ""),
+            "nickname": userinfo.name,
         },
         "extra": {
             "oopz_area_id": msg.area,

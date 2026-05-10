@@ -209,8 +209,8 @@ class ChannelGroupInfo(BaseModel):
 
 
 class AreaUserDetail(BaseModel):
-    disable_text_to: int = Field(default=0, alias="disableTextTo")
-    disable_voice_to: int = Field(default=0, alias="disableVoiceTo")
+    disable_text_to: str | None = Field(default=None, alias="disableTextTo")
+    disable_voice_to: str | None = Field(default=None, alias="disableVoiceTo")
     higher_uid: str = Field(default="", alias="higherUid")
     roles: list[RoleInfo] = Field(default_factory=list, alias="list")
     now: int = 0

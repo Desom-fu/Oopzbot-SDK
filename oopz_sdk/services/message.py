@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional, Any, List
-
+from typing import Optional, Any, List, Literal
 
 from oopz_sdk import models
 from oopz_sdk.exceptions import OopzApiError
@@ -263,10 +262,10 @@ class Message(BaseService):
     ) -> models.OperationResult:
         if message_id.strip() == "":
             raise ValueError("message_id is required for recall_private_message")
-        if channel.strip() == "":
-            raise ValueError("channel is required for recall_private_message")
         if target.strip() == "":
             raise ValueError("target is required for recall_private_message")
+        if channel.strip() == "":
+            channel = (await self.open_private_session(target)).session_id
         timestamp = timestamp or self.signer.timestamp_us()
         url_path = "/im/session/v1/recallIm"
         body = {
@@ -365,53 +364,130 @@ class Message(BaseService):
         })
         return models.OperationResult.from_api(data)
 
-    async def add_channel_reaction(self, message_id: str, area: str, channel: str, emoji: str) -> models.OperationResult:
-        """
-        给频道消息添加表情反应。
-        """
-        if area.strip() == "":
-            raise ValueError("area is required for add_reaction")
-        if channel.strip() == "":
-            raise ValueError("channel is required for add_reaction")
-        if emoji.strip() == "":
-            raise ValueError("emoji is required for add_reaction")
+    async def _send_reaction(
+            self,
+            *,
+            scope: Literal["channel", "private"],
+            message_id: str,
+            channel: str,
+            emoji: str,
+            reaction_type: Literal["REPLY", "WITHDRAW"],
+            area: str = "",
+            target: str = "",
+    ) -> models.OperationResult:
+        """发送 reaction 操作：频道 / 私信共用。"""
         if message_id.strip() == "":
-            raise ValueError("message_id is required for add_reaction")
+            raise ValueError("message_id is required for reaction")
+        if channel.strip() == "":
+            raise ValueError("channel is required for reaction")
+        if emoji.strip() == "":
+            raise ValueError("emoji is required for reaction")
 
-        result = await self._request_data("POST", "/im/session/v1/gimReaction", body={
-            "anchor": "",
-            "area": area,
-            "channel": channel,
-            "emoji": normalize_reaction_emoji(emoji),
-            "messageId": message_id,
-            "target": "",
-            "type": "REPLY"
-        })
+        if scope == "channel":
+            if area.strip() == "":
+                raise ValueError("area is required for channel reaction")
+
+            endpoint = "/im/session/v1/gimReaction"
+            anchor = ""
+            body_target = ""
+
+        elif scope == "private":
+            if target.strip() == "":
+                raise ValueError("target is required for private reaction")
+
+            endpoint = "/im/session/v1/imReaction"
+            anchor = target
+            body_target = target
+
+        else:
+            raise ValueError("scope must be 'channel' or 'private'")
+
+        result = await self._request_data(
+            "POST",
+            endpoint,
+            body={
+                "anchor": anchor,
+                "area": area,
+                "channel": channel,
+                "emoji": normalize_reaction_emoji(emoji),
+                "messageId": message_id,
+                "target": body_target,
+                "type": reaction_type,
+            },
+        )
         return models.OperationResult.from_api(result)
 
-    async def add_private_reaction(self, message_id: str, channel: str, target: str, emoji: str, area="") -> models.OperationResult:
-        """
-        给私信消息添加表情反应。
-        """
-        if target.strip() == "":
-            raise ValueError("target is required for add_reaction")
-        if channel.strip() == "":
-            raise ValueError("channel is required for add_reaction")
-        if emoji.strip() == "":
-            raise ValueError("emoji is required for add_reaction")
-        if message_id.strip() == "":
-            raise ValueError("message_id is required for add_reaction")
+    async def add_channel_reaction(
+            self,
+            message_id: str,
+            area: str,
+            channel: str,
+            emoji: str,
+    ) -> models.OperationResult:
+        """给频道消息添加表情反应。"""
+        return await self._send_reaction(
+            scope="channel",
+            message_id=message_id,
+            area=area,
+            channel=channel,
+            emoji=emoji,
+            reaction_type="REPLY",
+        )
 
-        result = await self._request_data("POST", "/im/session/v1/imReaction", body={
-            "anchor": target,
-            "area": area,
-            "channel": channel,
-            "emoji": normalize_reaction_emoji(emoji),
-            "messageId": message_id,
-            "target": target,
-            "type": "REPLY"
-        })
-        return models.OperationResult.from_api(result)
+    async def withdraw_channel_reaction(
+            self,
+            message_id: str,
+            area: str,
+            channel: str,
+            emoji: str,
+    ) -> models.OperationResult:
+        """撤回频道消息表情反应。"""
+        return await self._send_reaction(
+            scope="channel",
+            message_id=message_id,
+            area=area,
+            channel=channel,
+            emoji=emoji,
+            reaction_type="WITHDRAW",
+        )
+
+    async def add_private_reaction(
+            self,
+            message_id: str,
+            channel: str,
+            target: str,
+            emoji: str,
+            area: str = "",
+    ) -> models.OperationResult:
+        """给私信消息添加表情反应。"""
+        return await self._send_reaction(
+            scope="private",
+            message_id=message_id,
+            area=area,
+            channel=channel,
+            target=target,
+            emoji=emoji,
+            reaction_type="REPLY",
+        )
+
+    async def withdraw_private_reaction(
+            self,
+            message_id: str,
+            channel: str,
+            target: str,
+            emoji: str,
+            area: str = "",
+    ) -> models.OperationResult:
+        """撤回私信消息表情反应。"""
+        return await self._send_reaction(
+            scope="private",
+            message_id=message_id,
+            area=area,
+            channel=channel,
+            target=target,
+            emoji=emoji,
+            reaction_type="WITHDRAW",
+        )
 
     async def get_channel_reaction_persons(self, message_id: str, channel: str, emoji: str, page: int = 1,
                                            page_size: int = 4) -> list[str]:
@@ -484,11 +560,11 @@ class Message(BaseService):
             raise ValueError("Unexpected response format: expected list with one item for get_message_reactions")
         return models.MessageEmojiItem.from_api(data[0])
 
-    async def get_channel_message_reactions_batch(self, message_ids: str) -> list[models.MessageEmojiItem]:
+    async def get_channel_message_reactions_batch(self, message_ids: list[str]) -> list[models.MessageEmojiItem]:
         if len(message_ids) < 1:
             raise ValueError("message_ids is required for get_message_reactions")
-        if len(message_ids) > 50:
-            raise ValueError("message_ids is too large for get_message_reactions")
+        if not all(isinstance(mid, str) and mid.strip() for mid in message_ids):
+            raise ValueError("message_ids must contain only non-empty str values")
         id_body = [{"messageId": message_id} for message_id in message_ids]
         data = await self._request_data("POST", "/im/session/v1/gimReactions", body=id_body)
 
@@ -513,3 +589,49 @@ class Message(BaseService):
         data = await self._request_data("POST", "/im/session/v1/imReactions", body=id_body)
 
         return [models.MessageEmojiItem.from_api(d) for d in data]
+
+
+    async def send_voice_channel_interaction(self, area: str, channel: str, target: str,
+                                             interaction_sticker_ids: models.VoiceInteractionSticker | str | list[
+                                         models.VoiceInteractionSticker | str]) -> models.OperationResult:
+        if area.strip() == "":
+            raise ValueError("area is required for send_voice_channel_interaction()")
+        if channel.strip() == "":
+            raise ValueError("channel is required for send_voice_channel_interaction()")
+        if target.strip() == "":
+            raise ValueError("target is required for send_voice_channel_interaction()")
+
+        if isinstance(interaction_sticker_ids, (str, models.VoiceInteractionSticker)):
+            interaction_sticker_ids = [interaction_sticker_ids]
+
+        if not isinstance(interaction_sticker_ids, list):
+            raise TypeError(
+                "interaction_sticker_ids must be a list[VoiceInteractionSticker | str], "
+                "VoiceInteractionSticker, or str for send_voice_channel_interaction()"
+            )
+
+        if not all(isinstance(i, (str, models.VoiceInteractionSticker)) for i in interaction_sticker_ids):
+            raise TypeError(
+                "interaction_sticker_ids must contain only VoiceInteractionSticker or str values "
+                "for send_voice_channel_interaction()"
+            )
+
+        sticker_ids = [
+            i.value if isinstance(i, models.VoiceInteractionSticker) else i
+            for i in interaction_sticker_ids
+        ]
+
+        if not sticker_ids:
+            raise ValueError("interaction_sticker_ids cannot be empty for send_voice_channel_interaction()")
+
+        result = await self._request_data(
+            "POST",
+            "/client/v1/interaction/v1/send",
+            body={
+                "area": area,
+                "channel": channel,
+                "interactionStickerIds": sticker_ids,
+                "target": target,
+            },
+        )
+        return models.OperationResult.from_api(result)

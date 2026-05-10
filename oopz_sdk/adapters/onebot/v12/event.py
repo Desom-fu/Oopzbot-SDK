@@ -276,7 +276,7 @@ def _event_id(event: Any) -> str:
                 return f"oopz.event.{value}"
 
     msg = getattr(event, "message", None)
-    if msg is not None and getattr(msg, "message_id", ""):
+    if msg is not None and getattr(msg, "message_id", "") != "":
         return f"oopz.event.message.{msg.message_id}"
 
     return f"oopz.event.{time.time_ns()}"

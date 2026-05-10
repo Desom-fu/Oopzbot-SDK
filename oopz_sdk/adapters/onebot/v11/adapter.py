@@ -29,7 +29,7 @@ from .types import (
     parse_user_source,
     require_int,
     require_bool,
-    parse_bool,
+    parse_bool, require_str,
 )
 from ..utils import model_to_userinfo_extra, model_to_profile_extra
 
@@ -122,6 +122,7 @@ class OneBotV11Adapter:
             "get_group_list": self.get_group_list,
             "get_group_member_info": self.get_group_member_info,
             "set_group_name": self.set_group_name,
+            "get_group_member_list": self.get_group_member_list,
 
             # maintenance
             "cleanup_message_mapping": self.cleanup_message_mapping,
@@ -142,7 +143,7 @@ class OneBotV11Adapter:
         if isinstance(event, HeartbeatEvent) or isinstance(event, ServerIdEvent):
             return {}
 
-        payload = to_v11_event(event, self_id=self.self_oopz_id, ids=self.ids)
+        payload = await to_v11_event(event, self_id=self.self_oopz_id, ids=self.ids, bot=self.oopz_bot)
         self._save_message_event_mapping(payload)
         self._event_queue.append(payload)
         logger.debug("emit onebot v11 event: %s", payload)
@@ -367,6 +368,7 @@ class OneBotV11Adapter:
                     message_id=oopz_message_id,
                     target=self._resolve_user_id(target) if str(target).isdigit() else target,
                     area=area or None,
+                    channel="",
                 )
             else:
                 if not area or not channel:
@@ -448,13 +450,13 @@ class OneBotV11Adapter:
     async def get_stranger_info(self, params: Mapping[str, Any]) -> JsonDict:
         user_id = require_int(params, "user_id")
         uid = self._resolve_user_id(user_id)
-        info: models.UserInfo = await self.oopz_bot.person.get_person_info(uid)
+        info: models.Profile = await self.oopz_bot.person.get_person_detail_full(uid)
         return {
             "user_id": user_id,
             "nickname": info.name,
             "sex": "unknown",
             "age": 0,
-            "extra": model_to_userinfo_extra(info)
+            "extra": model_to_profile_extra(info)
         }
 
     async def get_friend_list(self, params: Mapping[str, Any] | None = None) -> list[JsonDict]:
@@ -541,34 +543,118 @@ class OneBotV11Adapter:
         uid = self._resolve_user_id(user_id)
 
         info = await self.oopz_bot.person.get_person_info(uid)
+        nicknames = await self.oopz_bot.areas.get_user_area_nicknames(area, uid)
         aud: models.AreaUserDetail = await self.oopz_bot.areas.get_area_user_detail(area, uid)
-        # Oopz 当前没有直接等价于 OneBot v11 的 group card。
-        # mark_name 更像用户备注/标记名，不一定是群名片，所以默认不给 card 硬塞 nickname。
-        card = getattr(info, "mark_name", "") or ""
+
+        area_info: models.AreaInfo = await self.oopz_bot.areas.get_area_info(area)
+        area_role_dict = {
+            role.role_id: role.name
+            for role in area_info.role_list
+        }
+
+        ob_role = "member"
+        if aud.roles:
+            owned_role_ids = [role.role_id for role in aud.roles]
+            for role_id in owned_role_ids:
+                if area_role_dict.get(role_id) == "域主":
+                    ob_role = "owner"
 
         response = {
-            # OneBot v11 标准字段
             "group_id": group_id,
             "user_id": user_id,
             "nickname": info.name,
-            "card": card,
+            "card": nicknames.get(uid, ""),
             "sex": "unknown",
             "age": 0,
             "area": "",
             "join_time": 0,
             "last_sent_time": 0,
             "level": str(info.memberLevel),
-            "role": "member",
+            "role": ob_role,
             "unfriendly": False,
             "title": "",
             "title_expire_time": 0,
             "card_changeable": False,
-            "shut_up_timestamp": aud.disable_text_to // 1000,
-
-            # 扩展字段，方便调试和高级用户使用
-            "extra": model_to_userinfo_extra(info),
+            "shut_up_timestamp": 0 if aud.disable_text_to is None else int(aud.disable_text_to) // 1000,
+            "extra": {
+                **model_to_userinfo_extra(info),
+                "oopz_area_id": area,
+                "oopz_channel_id": channel,
+                "oopz_user_id": uid,
+            },
         }
         return response
+
+    async def get_group_member_list(self, params: Mapping[str, Any]) -> list[JsonDict]:
+        group_id = require_int(params, "group_id")
+        area, channel = self._resolve_group_id(group_id)
+
+
+        # 获取域的role list来判断是不是域主
+        area_info: models.AreaInfo = await self.oopz_bot.areas.get_area_info(area)
+        area_role_dict = {
+            role.role_id: role.name
+            for role in area_info.role_list
+        }
+
+        # 获取域的全部成员
+        member_infos = await self.oopz_bot.areas.get_all_area_members(area)
+
+        member_by_uid = {
+            member.uid: member
+            for member in member_infos
+            if getattr(member, "uid", None)
+        }
+
+
+        # 拿到oopz侧的uid来进行信息获取
+        oopz_uids = list(member_by_uid.keys())
+
+        if not oopz_uids:
+            return []
+
+        nicknames = await self.oopz_bot.areas.get_user_area_nicknames(area, oopz_uids)
+
+        oopz_user_infos = await self.oopz_bot.person.get_person_infos_batch(uids=oopz_uids)
+
+        result: list[JsonDict] = []
+
+        for user_info in oopz_user_infos:
+            if not user_info.uid:
+                continue
+
+            member_info = member_by_uid.get(user_info.uid)
+
+            ob_role = "member"
+            if member_info is not None:
+                if area_role_dict.get(member_info.role) == "域主":
+                    ob_role = "owner"
+            user_id = self.ids.createId(make_user_source(user_info.uid)).number
+            result.append({
+                "group_id": group_id,
+                "user_id": user_id,
+                "nickname": user_info.name,
+                "card": nicknames.get(user_info.uid, ""),
+                "sex": "unknown",
+                "age": 0,
+                "area": "",
+                "join_time": 0,
+                "last_sent_time": 0,
+                "level": str(user_info.memberLevel),
+                "role": ob_role,
+                "unfriendly": False,
+                "title": "",
+                "title_expire_time": 0,
+                "card_changeable": False,
+                "extra": {
+                    **model_to_userinfo_extra(user_info),
+                    "oopz_area_id": area,
+                    "oopz_channel_id": channel,
+                    "oopz_user_id": user_info.uid,
+                },
+            })
+
+        return result
 
     async def set_group_kick(self, params: Mapping[str, Any]) -> JsonDict:
         group_id = require_int(params, "group_id")
@@ -619,9 +705,6 @@ class OneBotV11Adapter:
         area, channel = self._resolve_group_id(group_id)
         await self.oopz_bot.areas.leave_area(area)
         return {}
-
-    async def get_group_member_list(self, params: Mapping[str, Any]) -> list[JsonDict]:
-        raise NotImplementedError
 
     async def set_friend_add_request(self, params: Mapping[str, Any]) -> JsonDict:
         approve = require_bool(params, "approve")

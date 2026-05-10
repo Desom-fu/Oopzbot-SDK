@@ -68,7 +68,7 @@ class HttpTransport(BaseTransport):
         self,
         method: str,
         url_path: str,
-        body: dict | list | None = None,
+        body: Mapping | list | None = None,
         **kwargs,
     ) -> HttpResponse:
         await self.throttle()
