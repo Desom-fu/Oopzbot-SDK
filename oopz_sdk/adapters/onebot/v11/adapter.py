@@ -29,7 +29,7 @@ from .types import (
     parse_user_source,
     require_int,
     require_bool,
-    parse_bool,
+    parse_bool, require_str,
 )
 from ..utils import model_to_userinfo_extra, model_to_profile_extra
 
@@ -122,6 +122,7 @@ class OneBotV11Adapter:
             "get_group_list": self.get_group_list,
             "get_group_member_info": self.get_group_member_info,
             "set_group_name": self.set_group_name,
+            "get_group_member_list": self.get_group_member_list,
 
             # maintenance
             "cleanup_message_mapping": self.cleanup_message_mapping,
@@ -541,35 +542,114 @@ class OneBotV11Adapter:
         area, channel = self._resolve_group_id(group_id)
         uid = self._resolve_user_id(user_id)
 
-        info: models.Profile = await self.oopz_bot.person.get_person_detail_full(uid)
+        info = await self.oopz_bot.person.get_person_info(uid)
+        nicknames = await self.oopz_bot.areas.get_user_area_nicknames(area, uid)
         aud: models.AreaUserDetail = await self.oopz_bot.areas.get_area_user_detail(area, uid)
-        # Oopz 当前没有直接等价于 OneBot v11 的 group card。
-        # mark_name 更像用户备注/标记名，不一定是群名片，所以默认不给 card 硬塞 nickname。
-        card = getattr(info, "mark_name", "") or ""
+
+        area_info: models.AreaInfo = await self.oopz_bot.areas.get_area_info(area)
+        area_role_dict = {
+            role.role_id: role.name
+            for role in area_info.role_list
+        }
+
+        ob_role = self._to_v11_group_role(
+            area_role_dict=area_role_dict,
+            role_source=aud.roles,
+        )
 
         response = {
-            # OneBot v11 标准字段
             "group_id": group_id,
             "user_id": user_id,
             "nickname": info.name,
-            "card": card,
+            "card": nicknames.get(uid, ""),
             "sex": "unknown",
             "age": 0,
-            "area": info.ip_address,
+            "area": "",
             "join_time": 0,
             "last_sent_time": 0,
-            "level": str(info.user_level),
-            "role": "member",
+            "level": str(info.memberLevel),
+            "role": ob_role,
             "unfriendly": False,
             "title": "",
             "title_expire_time": 0,
             "card_changeable": False,
-            "shut_up_timestamp": aud.disable_text_to // 1000,
-
-            # 扩展字段，方便调试和高级用户使用
-            "extra": model_to_profile_extra(info),
+            "shut_up_timestamp": 0 if aud.disable_text_to is None else int(aud.disable_text_to) // 1000,
+            "extra": {
+                **model_to_userinfo_extra(info),
+                "oopz_area_id": area,
+                "oopz_channel_id": channel,
+                "oopz_user_id": uid,
+            },
         }
         return response
+
+    async def get_group_member_list(self, params: Mapping[str, Any]) -> list[JsonDict]:
+        group_id = require_int(params, "group_id")
+        area, channel = self._resolve_group_id(group_id)
+
+
+        # 获取域的role list来判断是不是域主
+        area_info: models.AreaInfo = await self.oopz_bot.areas.get_area_info(area)
+        area_role_dict = {
+            role.role_id: role.name
+            for role in area_info.role_list
+        }
+
+        # 获取域的全部成员
+        member_infos = await self.oopz_bot.areas.get_all_area_members(area)
+
+        member_by_uid = {
+            member.uid: member
+            for member in member_infos
+            if getattr(member, "uid", None)
+        }
+
+
+        # 拿到oopz侧的uid来进行信息获取
+        oopz_uids = list(member_by_uid.keys())
+
+        nicknames = await self.oopz_bot.areas.get_user_area_nicknames(area, oopz_uids)
+
+        oopz_user_infos = await self.oopz_bot.person.get_person_infos_batch(uids=oopz_uids)
+
+        result: list[JsonDict] = []
+
+        for user_info in oopz_user_infos:
+            if not user_info.uid:
+                continue
+
+            member_info = member_by_uid.get(user_info.uid)
+
+            ob_role = "member"
+            if member_info is not None:
+                if area_role_dict.get(member_info.role) == "域主":
+                    ob_role = "owner"
+            user_id = self.ids.createId(make_user_source(user_info.uid)).number
+            result.append({
+                "group_id": group_id,
+                "user_id": user_id,
+                "nickname": user_info.name,
+                "card": nicknames.get(user_info.uid, ""),
+                "sex": "unknown",
+                "age": 0,
+                "area": "",
+                "join_time": 0,
+                "last_sent_time": 0,
+                "level": str(user_info.memberLevel),
+                "role": ob_role,
+                "unfriendly": False,
+                "title": "",
+                "title_expire_time": 0,
+                "card_changeable": False,
+                "extra": {
+                    **model_to_userinfo_extra(user_info),
+                    "oopz_area_id": area,
+                    "oopz_channel_id": channel,
+                    "oopz_user_id": user_info.uid,
+                },
+            })
+
+        return result
 
     async def set_group_kick(self, params: Mapping[str, Any]) -> JsonDict:
         group_id = require_int(params, "group_id")
@@ -620,9 +700,6 @@ class OneBotV11Adapter:
         area, channel = self._resolve_group_id(group_id)
         await self.oopz_bot.areas.leave_area(area)
         return {}
-
-    async def get_group_member_list(self, params: Mapping[str, Any]) -> list[JsonDict]:
-        raise NotImplementedError
 
     async def set_friend_add_request(self, params: Mapping[str, Any]) -> JsonDict:
         approve = require_bool(params, "approve")
@@ -787,6 +864,47 @@ class OneBotV11Adapter:
             )
         )
 
+    def _extract_area_role_ids(self, value: Any) -> list[int]:
+        role_ids: list[int] = []
+
+        if value is None:
+            return role_ids
+
+        if isinstance(value, int):
+            return [value]
+
+        if isinstance(value, str):
+            if value.isdigit():
+                return [int(value)]
+            return []
+
+        if isinstance(value, list):
+            for item in value:
+                role_ids.extend(self._extract_area_role_ids(item))
+            return role_ids
+
+        role_id = getattr(value, "role_id", None)
+        if role_id is not None:
+            try:
+                role_ids.append(int(role_id))
+            except (TypeError, ValueError):
+                pass
+
+        return role_ids
+
+    def _to_v11_group_role(
+            self,
+            *,
+            area_role_dict: dict[int, str],
+            role_source: Any,
+    ) -> str:
+        role_ids = self._extract_area_role_ids(role_source)
+
+        for role_id in role_ids:
+            if area_role_dict.get(role_id) == "域主":
+                return "owner"
+
+        return "member"
 
 def truthy(value: Any) -> bool:
     return value is True or str(value).lower() in {"true", "1", "yes"}
