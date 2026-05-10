@@ -25,7 +25,10 @@ class AreaService(BaseService):
     ) -> models.AreaMembersPage:
         if area.strip() == "":
             raise ValueError("area cannot be empty")
-
+        if offset_start < 0:
+            raise ValueError("offset_start must be >= 0")
+        if offset_end < offset_start:
+            raise ValueError("offset_end must be >= offset_start")
 
         if not force:
             cached = self.cache.get_area_members_page(area, offset_start, offset_end)
@@ -63,6 +66,9 @@ class AreaService(BaseService):
 
         if page_size <= 0:
             raise ValueError("page_size must be greater than 0")
+
+        if max_pages is not None and max_pages <= 0:
+            return []
 
         members: list[models.AreaMemberInfo] = []
         offset_start = 0

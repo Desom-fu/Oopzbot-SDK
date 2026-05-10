@@ -563,8 +563,8 @@ class Message(BaseService):
     async def get_channel_message_reactions_batch(self, message_ids: list[str]) -> list[models.MessageEmojiItem]:
         if len(message_ids) < 1:
             raise ValueError("message_ids is required for get_message_reactions")
-        if len(message_ids) > 50:
-            raise ValueError("message_ids is too large for get_message_reactions")
+        if not all(isinstance(mid, str) and mid.strip() for mid in message_ids):
+            raise ValueError("message_ids must contain only non-empty str values")
         id_body = [{"messageId": message_id} for message_id in message_ids]
         data = await self._request_data("POST", "/im/session/v1/gimReactions", body=id_body)
 
