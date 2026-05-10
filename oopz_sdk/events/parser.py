@@ -82,7 +82,7 @@ class EventParser:
 
         # 消息
         EVENT_CHAT_MESSAGE: EventSpec("message", MessageEvent, is_message=True),
-        EVENT_PRIVATE_MESSAGE: EventSpec("message.private", MessageEvent, is_message=True, is_private=True, ),
+        EVENT_PRIVATE_MESSAGE: EventSpec("message.private", MessageEvent, is_message=True, is_private=True),
         EVENT_MESSAGE_EDIT: EventSpec("message.edit", MessageEvent, is_message=True),
         EVENT_PRIVATE_MESSAGE_EDIT: EventSpec("message.private.edit", MessageEvent, is_message=True, is_private=True),
         EVENT_MESSAGE_DELETE: EventSpec("recall", MessageDeleteEvent),

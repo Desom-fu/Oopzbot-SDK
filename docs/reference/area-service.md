@@ -71,7 +71,7 @@ for member in page.members:
 
 ## `get_all_area_members(area, page_size=100, max_pages=None, force=False)`
 
-获取域成员分页，带短期缓存。
+获取所有域中的成员，带短期缓存。
 
 ```python
 page = await bot.areas.get_area_members(

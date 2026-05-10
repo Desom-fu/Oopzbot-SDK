@@ -253,6 +253,37 @@ print(profile.user_level)
 
 ---
 
+
+## `update_self_introduction(introduction)`
+
+更新bot自己的个人介绍
+
+```python
+
+await bot.person.update_self_introduction("新的个人介绍")
+
+```
+
+=== "参数"
+
+    | 参数 | 类型 | 必填 | 说明 |
+    | --- | --- | --- | --- |
+    | `introduction` | `str` | 否 | 修改的个人介绍, 为空为清除个人介绍 |
+
+=== "返回值"
+
+    返回：`OperationResult`。
+
+    对应模型：`oopz_sdk.models.OperationResult`
+
+    | 字段 | 类型 | 默认值 | 说明 |
+    | --- | --- | --- | --- |
+    | `ok` | `bool` | `True` | 操作是否成功。 |
+    | `message` | `str` | `""` | 操作消息或错误信息。 |
+
+    
+---
+
 ## `get_level_info()`
 
 获取当前用户等级和积分信息。

@@ -62,6 +62,7 @@ class TTLCache(Generic[T]):
             self._store.popitem(last=False)
 
     def delete(self, key: Hashable) -> None:
+        logger.debug(f"DELETE: key: {key}")
         self._store.pop(key, None)
 
     def clear(self) -> None:

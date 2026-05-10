@@ -153,6 +153,14 @@ class Person(BaseService):
         self.cache.set_identity(profile)
         return profile
 
+    async def update_self_introduction(self, introduction: str) -> models.OperationResult:
+        if not isinstance(introduction, str):
+            raise ValueError("The introduction of update_self_introduction() needs to be of type `str`.")
+        data = await self._request_data("PUT", "/client/v1/person/v1/introduction", body={
+            "introduction": introduction
+        })
+        return models.OperationResult.from_api(data)
+
     async def get_level_info(self) -> models.UserLevelInfo:
         """获取当前用户等级、积分信息。"""
         url_path = "/user_points/v1/level_info"
