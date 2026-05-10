@@ -9,6 +9,7 @@ from oopz_sdk.events.context import EventContext
 from oopz_sdk.events.dispatcher import EventDispatcher
 from oopz_sdk.events.parser import EventParser
 from oopz_sdk.events.registry import EventRegistry
+from oopz_sdk.state.cache import CacheStore
 
 from .rest import OopzRESTClient
 from .ws import CloseInfo, OopzWSClient
@@ -42,12 +43,13 @@ class OopzBot:
         on_reconnect=None,
         on_raw_event=None,
     ):
+        self.cache: CacheStore = CacheStore(config)
         self.config = config
         self.registry = EventRegistry()
         self.dispatcher = EventDispatcher(self.registry)
         self.parser = EventParser()
 
-        self.rest = OopzRESTClient(config, bot=self)
+        self.rest = OopzRESTClient(config, bot=self, cache=self.cache)
         self.messages: message_service.Message = self.rest.messages
         self.media = self.rest.media
         self.areas = self.rest.areas
@@ -60,6 +62,7 @@ class OopzBot:
             config,
             self.rest.transport,
             self.rest.signer,
+            self.cache
         )
 
         # 通用 adapter 生命周期容器。
@@ -202,7 +205,8 @@ class OopzBot:
         try:
             await self.rest.start()
             rest_started = True
-
+            # 对个人数据信息进行缓存
+            await self._warmup_self_identity_cache()
             await self._start_adapter_servers()
             adapter_servers_started = bool(self._adapter_servers)
 
@@ -428,3 +432,11 @@ class OopzBot:
 
         except Exception as exc:
             logger.error("Failed to subscribe joined area events: %s", exc)
+
+    async def _warmup_self_identity_cache(self) -> None:
+        if not getattr(self.config, "warmup_self_identity", True):
+            return
+        try:
+            await self.person.get_self_detail(force=True)
+        except Exception as exc:
+            logger.warning("Failed to warm up self identity cache: %s", exc)

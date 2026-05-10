@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Mapping
 
 from oopz_sdk.auth.signer import Signer
 from oopz_sdk.config.settings import OopzConfig
+from oopz_sdk.state.cache import CacheStore
 from oopz_sdk.transport.http import HttpTransport, HttpResponse
 
 if TYPE_CHECKING:
@@ -33,11 +34,13 @@ class BaseService:
             config: OopzConfig,
             transport: HttpTransport,
             signer: Signer,
+            cache: CacheStore
     ):
         self._bot = owner
         self._config = config
         self.transport = transport
         self.signer = signer
+        self.cache = cache
 
     async def _request_data(
             self,

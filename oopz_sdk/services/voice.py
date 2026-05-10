@@ -20,8 +20,8 @@ class Voice(BaseService):
     - periodically re-send the identity bridge payload used by Oopzbot
     """
 
-    def __init__(self, owner, config, transport, signer):
-        super().__init__(owner, config, transport, signer)
+    def __init__(self, owner, config, transport, signer, cache):
+        super().__init__(owner, config, transport, signer, cache)
         self.backend = BrowserVoiceTransport(config)
         self._current_sign: models.ChannelSign | None = None
         self._current_area: str | None = None

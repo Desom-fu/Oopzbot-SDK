@@ -186,6 +186,28 @@ class MessageDeleteEvent(Event):
         return normalized
 
 
+class MessageReactionEvent(Event):
+    message_id: str = Field(default="", alias="messageId")
+    area: str = ""
+    area_page: str = Field(default="", alias="areaPage")
+    channel: str = ""
+    person: str = ""
+    emoji: str = ""
+    type: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_and_normalize(cls, data: Any) -> Any:
+        normalized = Event.normalize_common_fields(data, model_name=cls.__name__)
+        normalized["message_id"] = normalized.get("messageId", "")
+        normalized["area"] = normalized.get("area", "")
+        normalized["area_page"] = normalized.get("areaPage", "")
+        normalized["channel"] = normalized.get("channel", "")
+        normalized["person"] = normalized.get("person", "")
+        normalized["emoji"] = normalized.get("emoji", "")
+        normalized["type"] = normalized.get("type", "")
+        return normalized
+
 class AreaDisableEvent(Event):
     ack_id: str = Field(default="", alias="ackId")
     type: str = ""

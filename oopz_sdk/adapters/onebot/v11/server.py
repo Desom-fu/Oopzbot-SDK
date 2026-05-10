@@ -226,7 +226,7 @@ class OneBotV11Server:
 
         try:
             if self.config.send_connect_event and role in {"event", "universal"}:
-                await ws.send_json(self._connect_event())
+                await self._ws_send_json(ws, self._connect_event())
 
             async for msg in ws:
                 if role == "event":
@@ -234,14 +234,14 @@ class OneBotV11Server:
                     continue
 
                 if msg.type == WSMsgType.TEXT:
-                    await ws.send_json(await self._handle_ws_payload_text(msg.data))
+                    await self._ws_send_json(ws, await self._handle_ws_payload_text(msg.data))
                 elif msg.type == WSMsgType.BINARY:
                     try:
                         text = msg.data.decode("utf-8")
                     except UnicodeDecodeError:
-                        await ws.send_json(self._failed(1400, "binary payload must be utf-8 json"))
+                        await self._ws_send_json(ws, self._failed(1400, "binary payload must be utf-8 json"))
                         continue
-                    await ws.send_json(await self._handle_ws_payload_text(text))
+                    await self._ws_send_json(ws, await self._handle_ws_payload_text(text))
                 elif msg.type == WSMsgType.ERROR:
                     logger.warning("OneBot v11 WebSocket error: %s", ws.exception())
                     break
@@ -278,7 +278,7 @@ class OneBotV11Server:
                 closed.append(ws)
                 continue
             try:
-                await ws.send_json(event)
+                await self._ws_send_json(ws, event)
             except Exception:
                 logger.exception("failed to send OneBot v11 event to WebSocket")
                 closed.append(ws)
@@ -456,25 +456,25 @@ class OneBotV11Server:
 
             async def reverse_sink(event: JsonDict) -> None:
                 if role in {"event", "universal"}:
-                    await ws.send_json(event)
+                    await self._ws_send_json(ws, event)
 
             self.adapter.add_event_sink(reverse_sink)
             try:
                 if self.config.send_connect_event and role in {"event", "universal"}:
-                    await ws.send_json(self._connect_event())
+                    await self._ws_send_json(ws, self._connect_event())
 
                 async for msg in ws:
                     if role == "event":
                         continue
                     if msg.type == WSMsgType.TEXT:
-                        await ws.send_json(await self._handle_ws_payload_text(msg.data))
+                        await self._ws_send_json(ws, await self._handle_ws_payload_text(msg.data))
                     elif msg.type == WSMsgType.BINARY:
                         try:
                             text = msg.data.decode("utf-8")
                         except UnicodeDecodeError:
-                            await ws.send_json(self._failed(1400, "binary payload must be utf-8 json"))
+                            await self._ws_send_json(ws, self._failed(1400, "binary payload must be utf-8 json"))
                             continue
-                        await ws.send_json(await self._handle_ws_payload_text(text))
+                        await self._ws_send_json(ws, await self._handle_ws_payload_text(text))
                     elif msg.type == WSMsgType.ERROR:
                         logger.warning("OneBot v11 reverse WebSocket error: %s", ws.exception())
                         break
@@ -543,3 +543,7 @@ class OneBotV11Server:
             status=status,
             content_type="application/json",
         )
+
+    @staticmethod
+    async def _ws_send_json(ws: web.WebSocketResponse, data: Any) -> None:
+        await ws.send_str(json.dumps(data, ensure_ascii=False))
