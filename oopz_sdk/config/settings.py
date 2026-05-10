@@ -156,19 +156,19 @@ class OopzConfig:
     voice_browser_executable_path: str = ""
     voice_agora_sdk_url: str = "https://download.agora.io/sdk/release/AgoraRTC_N.js"
 
-    userinfo_cache_max_entries : float = 5000
-    userinfo_cache_ttl : float = 1800.0
+    userinfo_cache_max_entries: int = 5000
+    userinfo_cache_ttl: float = 1800.0
 
-    area_channels_cache_max_entries: float = 1000
+    area_channels_cache_max_entries: int = 1000
     area_channels_cache_ttl: float = 1800.0
 
-    person_profiles_cache_max_entries: float = 3000
+    person_profiles_cache_max_entries: int = 3000
     person_profile_cache_ttl: float = 1800.0
 
-    area_user_nickname_cache_max_entries: float = 20000
+    area_user_nickname_cache_max_entries: int = 20000
     area_user_nickname_cache_ttl: float = 300.0
 
-    area_members_page_cache_max_entries : float = 200
+    area_members_page_cache_max_entries : int = 200
     area_members_page_cache_ttl: float = 10.0
 
     headers: dict[str, str] = field(default_factory=dict)

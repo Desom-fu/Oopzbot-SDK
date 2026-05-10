@@ -61,6 +61,9 @@ class AreaService(BaseService):
         if area.strip() == "":
             raise ValueError("area cannot be empty")
 
+        if page_size <= 0:
+            raise ValueError("page_size must be greater than 0")
+
         members: list[models.AreaMemberInfo] = []
         offset_start = 0
         page_count = 0

@@ -560,7 +560,7 @@ class Message(BaseService):
             raise ValueError("Unexpected response format: expected list with one item for get_message_reactions")
         return models.MessageEmojiItem.from_api(data[0])
 
-    async def get_channel_message_reactions_batch(self, message_ids: str) -> list[models.MessageEmojiItem]:
+    async def get_channel_message_reactions_batch(self, message_ids: list[str]) -> list[models.MessageEmojiItem]:
         if len(message_ids) < 1:
             raise ValueError("message_ids is required for get_message_reactions")
         if len(message_ids) > 50:

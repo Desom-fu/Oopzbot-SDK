@@ -610,6 +610,9 @@ class OneBotV11Adapter:
         # 拿到oopz侧的uid来进行信息获取
         oopz_uids = list(member_by_uid.keys())
 
+        if not oopz_uids:
+            return []
+
         nicknames = await self.oopz_bot.areas.get_user_area_nicknames(area, oopz_uids)
 
         oopz_user_infos = await self.oopz_bot.person.get_person_infos_batch(uids=oopz_uids)

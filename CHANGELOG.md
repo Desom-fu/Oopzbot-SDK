@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.11.0
+
+### 新增
+
+  * 新增 SDK 内部缓存存储 `CacheStore`，支持用户基础信息、用户详细资料、域频道、域成员分页和域内昵称等高频查询结果缓存。
+  * `Person` 服务新增用户基础信息批量查询缓存，并为 `get_person_info()`、`get_person_detail_full()`、`get_self_detail()` 增加 `force` 参数，支持跳过缓存强制刷新。
+  * `AreaService.get_area_members()` 新增短 TTL 分页缓存，并新增 `get_all_area_members()` 用于分页拉取域成员列表。
+  * OneBot v11 适配器新增 `get_group_member_list` action，用于返回 Oopz 域成员到 OneBot 群成员列表的兼容结构。
+  * 新增语音频道互动贴纸枚举 `VoiceInteractionSticker`，并新增 `Message.send_voice_channel_interaction()` 用于向语音频道成员发送互动贴纸。
+
+### 变更
+
+  * `OopzConfig` 增加多项缓存容量和 TTL 配置项，允许调用方按使用场景调整缓存策略。
+  * `get_area_members()`、`get_user_area_nicknames()` 等读接口支持通过 `force=True` 跳过缓存读取。
+
+
 ## 0.10.0
 
 ### 新增
