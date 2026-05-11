@@ -228,9 +228,8 @@ class HttpTransport(BaseTransport):
         # status 字段可能是 bool、整数或字符串（包括 "false"/"0"），用严格布尔转换
         # 避免 Python 真值默认把 "false" 当成功
         if not coerce_bool(data.get("status"), default=False):
-            message = data.get("message", "")
             raise OopzApiError(
-                f"status is not True: {message}",
+                self._error_message(data, default="Oopz API request failed"),
                 status_code=resp.status_code,
                 payload=data,
                 response=resp,
@@ -320,8 +319,14 @@ class HttpTransport(BaseTransport):
     def _error_message(payload: dict[str, Any] | None, default: str = "未知错误") -> str:
         if not isinstance(payload, dict):
             return default
-        for key in ("message", "error", "msg", "reason"):
-            value = payload.get(key)
+
+        message = payload.get("message", "").strip()
+        error = payload.get("error", "").strip()
+
+        if message and error and message != error:
+            return f"{message}: {error}"
+
+        for value in (error, message, payload.get("msg"), payload.get("reason")):
             if isinstance(value, str) and value.strip():
                 return value.strip()
         return default
