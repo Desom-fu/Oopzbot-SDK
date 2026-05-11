@@ -11,7 +11,7 @@
  *
  * Important mapping observed from the real client:
  * - Agora Web SDK joins with mode="live", role="host", codec="vp8".
- * - Oopz voice API data.supplierSign is the Agora token/channel_key.
+ * - Oopz voice API data.supplierSign is the play_urlAgora token/channel_key.
  * - Oopz voice API data.roomId is the Agora channelName.
  * - The Oopz API data.appId may be 0; do not use it as Agora app id.
  * - data_stream payload uses:
@@ -270,8 +270,6 @@ window.agoraSendIdentity = async (oopzUid, agoraUid = currentAgoraUid) => {
     currentAgoraUid = Number(agoraUid);
   }
 
-  currentMicMuted = false;
-  currentSpeakerMuted = false;
   return await sendCurrentVoiceState(2);
 };
 
@@ -326,20 +324,12 @@ async function stopCurrentPlayback({ bumpGen = true, nextState = "joined" } = {}
 
   activePlayback = null;
 
-  if (!playback) {
-    setState(nextState);
-    currentMicMuted = true;
-    await sendCurrentVoiceState(1);
-    return;
+  if (playback) {
+    await cleanupPlaybackResources(playback, {
+      stopProcessing: true,
+      unpublish: true,
+    });
   }
-
-  await cleanupPlaybackResources(playback, {
-    stopProcessing: true,
-    unpublish: true,
-  });
-
-  currentMicMuted = true;
-  await sendCurrentVoiceState(2);
 
   setState(nextState);
 }
@@ -355,9 +345,6 @@ async function finalizeStoppedPlayback(playback) {
     stopProcessing: false,
     unpublish: true,
   });
-
-  currentMicMuted = true;
-  await sendCurrentVoiceState(2);
 
   if (playback.gen === _playGen) {
     setState("joined");
@@ -375,8 +362,6 @@ function bindPlaybackEvents(playback) {
 
     if (st === "playing") {
       setState("playing");
-      currentMicMuted = false;
-      void sendCurrentVoiceState(1);
       return;
     }
 
@@ -434,13 +419,7 @@ window.agoraJoin = async (appId, token, channelName, uid) => {
         "assigned=", currentAgoraUid
       );
     }
-    currentMicMuted = false;
-    currentSpeakerMuted = false;
-
     setState("joined");
-
-    // If identity was already provided before join, publish the idle state.
-    await sendCurrentVoiceState(2);
 
     return {
       ok: true,
@@ -453,9 +432,6 @@ window.agoraJoin = async (appId, token, channelName, uid) => {
 
 window.agoraLeave = async () => {
   await stopCurrentPlayback({ bumpGen: true, nextState: "joined" });
-
-  currentMicMuted = true;
-  await sendCurrentVoiceState(2);
 
   if (client) {
     try {
@@ -480,16 +456,12 @@ async function publishTrackAsPlayback(localTrack, gen) {
   activePlayback = playback;
   bindPlaybackEvents(playback);
 
-  currentMicMuted = false;
-  currentSpeakerMuted = false;
-  await sendCurrentVoiceState(2);
-
   localTrack.startProcessAudioBuffer({ loop: false });
   await client.publish([localTrack]);
 
   // After publish, refresh identity/state again. This matches the real client more closely.
-  currentMicMuted = false;
-  currentSpeakerMuted = false;
+  // publish 成功后，补发一次 uid/cid + 当前 m/hm 状态。
+  // 此时 Agora signaling WS 通常已经存在。
   await sendCurrentVoiceState(2);
 
   if (!isCurrentPlayback(playback) || gen !== _playGen) {
@@ -543,10 +515,6 @@ window.agoraPlayAudio = async (url) => {
     if (gen !== _playGen) {
       return { ok: false, error: "superseded" };
     }
-
-    currentMicMuted = true;
-    await sendCurrentVoiceState(2);
-
     setState(client ? "joined" : "idle");
     return { ok: false, error: e?.message || String(e) };
   }
@@ -592,9 +560,6 @@ window.agoraPlayLocal = async (base64Data, mimeType) => {
     if (gen !== _playGen) {
       return { ok: false, error: "superseded" };
     }
-
-    currentMicMuted = true;
-    await sendCurrentVoiceState(2);
 
     setState(client ? "joined" : "idle");
     return { ok: false, error: e?.message || String(e) };

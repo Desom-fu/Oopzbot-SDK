@@ -61,20 +61,12 @@ class BrowserVoiceTransport:
     def available(self) -> bool:
         return self._available
 
-    @property
-    def assigned_agora_uid(self) -> str | None:
-        # Backward-compatible alias. In this implementation the Agora uid
-        # passed by enter_channel and the uid returned by client.join are
-        # expected to be the same value.
-        return self._agora_uid
-
-    @property
-    def oopz_uid(self) -> str | None:
-        return self._oopz_uid
-
     async def start(self) -> None:
         if self._started:
             return
+
+        self._init_error = None
+        self._init_done.clear()
 
         self._started = True
         self._thread = threading.Thread(
@@ -89,8 +81,10 @@ class BrowserVoiceTransport:
             self.config.agora_init_timeout,
         )
         if not ok:
+            self._started = False
             raise RuntimeError("voice browser init timeout")
         if self._init_error:
+            self._started = False
             raise RuntimeError(f"voice browser init failed: {self._init_error}")
 
         self._available = True
@@ -123,7 +117,6 @@ class BrowserVoiceTransport:
         self._thread_loop = None
         self._joined_room = None
         self._joined_uid = None
-        # Keep _oopz_uid and _agora_uid. Usually the same transport lifetime belongs to one account.
 
     def _thread_main(self) -> None:
         loop = asyncio.new_event_loop()
@@ -258,7 +251,8 @@ class BrowserVoiceTransport:
             raise ValueError("token / supplierSign is required for voice join")
         if not room_id:
             raise ValueError("room_id / roomId is required for voice join")
-
+        if not uid:
+            raise ValueError("agora uid (oopz pid) is required for voice join")
         rtc_uid = int(uid)
         real_app_id = self._normalize_app_id(app_id)
 
@@ -342,18 +336,17 @@ class BrowserVoiceTransport:
 
         await self._run_on_browser("agoraStopAudio")
 
-        if self._oopz_uid and self._agora_uid:
-            try:
-                await self.set_voice_state(mic_muted=True, speaker_muted=False)
-            except Exception:
-                logger.debug("set voice state after stop failed", exc_info=True)
-
     async def play_url(self, url: str) -> dict[str, Any]:
         result = await self._prepare_and_play("agoraPlayAudio", url)
         if result and result.get("ok"):
             return result
 
         logger.debug("remote audio play failed, fallback to local bytes: %s", result)
+
+        try:
+            await self.stop_audio()
+        except Exception:
+            logger.debug("stop audio before fallback failed", exc_info=True)
 
         data, mime_type = await self._download_audio(url)
         return await self.play_bytes(data, mime_type=mime_type)
@@ -385,17 +378,11 @@ class BrowserVoiceTransport:
 
     async def _prepare_and_play(self, method: str, *args: Any) -> dict[str, Any]:
         """
-        Match the real client flow as closely as possible:
-            data_stream m=0 hm=0
-            publish audio
-            data_stream m=0 hm=0
-        On stop/failure:
-            data_stream m=1 hm=0
+        Python 端只确保 uid/cid 绑定已经传给 HTML。
         """
         if self._oopz_uid and self._agora_uid:
             try:
                 await self.send_identity(self._oopz_uid, self._agora_uid)
-                await self.set_voice_state(mic_muted=False, speaker_muted=False)
             except Exception:
                 logger.debug("prepare voice identity before play failed", exc_info=True)
 
@@ -411,21 +398,9 @@ class BrowserVoiceTransport:
                         browser_uid,
                     )
 
-            if self._oopz_uid and self._agora_uid:
-                try:
-                    await self.send_identity(self._oopz_uid, self._agora_uid)
-                    await self.set_voice_state(mic_muted=False, speaker_muted=False)
-                except Exception:
-                    logger.debug("refresh voice identity after play failed", exc_info=True)
-
             return result
 
-        if self._oopz_uid and self._agora_uid:
-            try:
-                await self.set_voice_state(mic_muted=True, speaker_muted=False)
-            except Exception:
-                logger.debug("set voice state after play failure failed", exc_info=True)
-
+        # 播放失败
         return result or {"ok": False, "error": "empty browser result"}
 
     async def send_identity(
