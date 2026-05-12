@@ -11,10 +11,18 @@ from .constants import DEFAULT_HEADERS
 
 
 @dataclass
-class RetryConfig:
-    interval: float = 0.35
+class RequestConfig:
     timeout: float | tuple[float, float] = (10, 30)
+
+
+@dataclass
+class RetryConfig:
     max_attempts: int = 3
+
+
+@dataclass
+class RateLimitConfig:
+    interval: float = 0.0
 
 
 @dataclass
@@ -173,6 +181,8 @@ class OopzConfig:
 
     headers: dict[str, str] = field(default_factory=dict)
     retry: RetryConfig = field(default_factory=RetryConfig)
+    request_config: RequestConfig = field(default_factory=RequestConfig)
+    rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
     heartbeat: HeartbeatConfig = field(default_factory=HeartbeatConfig)
     proxy: ProxyConfig = field(default_factory=ProxyConfig)
 
@@ -278,19 +288,19 @@ class OopzConfig:
 
     @property
     def rate_limit_interval(self) -> float:
-        return self.retry.interval
+        return self.rate_limit.interval
 
     @rate_limit_interval.setter
     def rate_limit_interval(self, value: float) -> None:
-        self.retry.interval = value
+        self.rate_limit.interval = value
 
     @property
     def request_timeout(self) -> float | tuple[float, float]:
-        return self.retry.timeout
+        return self.request_config.timeout
 
     @request_timeout.setter
     def request_timeout(self, value: float | tuple[float, float]) -> None:
-        self.retry.timeout = value
+        self.request_config.timeout = value
 
     def get_headers(self) -> dict[str, str]:
         return {**DEFAULT_HEADERS, **self.headers}

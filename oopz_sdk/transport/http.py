@@ -56,13 +56,23 @@ class HttpTransport(BaseTransport):
         return self._client_session
 
     async def throttle(self) -> None:
-        interval = self.config.rate_limit_interval
+        try:
+            interval = float(self.config.rate_limit_interval)
+        except (TypeError, ValueError):
+            interval = 0.0
+
+        if interval <= 0:
+            return
+
         async with self._rate_lock:
-            now = asyncio.get_running_loop().time()
+            loop = asyncio.get_running_loop()
+            now = loop.time()
             elapsed = now - self._last_request_time
+
             if elapsed < interval:
                 await asyncio.sleep(interval - elapsed)
-            self._last_request_time = asyncio.get_running_loop().time()
+
+            self._last_request_time = loop.time()
 
     async def request(
         self,
@@ -136,9 +146,11 @@ class HttpTransport(BaseTransport):
             data: bytes | str | None = None,
             headers: Mapping[str, str] | None = None,
             timeout: float | tuple[float, float] | None = None,
+            throttle: bool = False,
     ) -> HttpResponse:
         method = method.upper()
-
+        if throttle:
+            await self.throttle()
         session = await self._ensure_client_session()
         req_timeout = _build_timeout(timeout or self.config.request_timeout)
         proxy = build_aiohttp_proxy(url, self.config.proxy)
@@ -262,11 +274,11 @@ class HttpTransport(BaseTransport):
             *,
             params: Mapping[str, Any] | None = None,
             body: Mapping[str, Any] | None = None,
-            max_attempts: int = 3,
+            max_attempts: int | None = None,
             retry_on_429: bool = False,
     ) -> Any:
-        if max_attempts < 1:
-            raise ValueError("max_attempts must be at least 1")
+        if max_attempts is None:
+            max_attempts = self.config.retry.max_attempts
 
         for attempt in range(1, max_attempts + 1):
             try:

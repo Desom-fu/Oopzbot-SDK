@@ -6,7 +6,7 @@ SDK 的所有能力都从 `OopzConfig` 开始。
 from oopz_sdk import OopzConfig, RetryConfig, HeartbeatConfig, ProxyConfig
 
 config = OopzConfig.from_env(
-    retry=RetryConfig(interval=0.35, timeout=(10, 30), max_attempts=3),
+    retry=RetryConfig(max_attempts=3),
     heartbeat=HeartbeatConfig(interval=10.0, reconnect_interval=2.0),
     proxy=ProxyConfig(http="http://127.0.0.1:7890", https="http://127.0.0.1:7890"),
 )
@@ -122,9 +122,18 @@ asyncio.run(main())
 
 | 字段             | 默认值        | 说明                                          |
 |----------------|------------|---------------------------------------------|
-| `interval`     | `0.35`     | 请求之间的基础间隔，也兼容 `config.rate_limit_interval`。 |
-| `timeout`      | `(10, 30)` | 连接超时和读取超时。                                  |
 | `max_attempts` | `3`        | 最大尝试次数。                                     |
+
+
+## 请求配置 `RequestConfig`
+
+| `timeout`      | `(10, 30)` | 连接超时和读取超时。                                  |
+
+
+## 全局请求频率限制配置 `RateLimitConfig`
+
+| `interval`     | `0.0`     | 全局请求之间的基础间隔，也兼容 `config.rate_limit_interval`。 |
+
 
 ## 心跳配置 `HeartbeatConfig`
 
