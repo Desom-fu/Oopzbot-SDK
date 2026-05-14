@@ -5,13 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import threading
 import warnings
 from dataclasses import dataclass, field
 from typing import Any
-
-from .constants import DEFAULT_HEADERS
-
 logger = logging.getLogger(__name__)
 
 
@@ -201,12 +197,8 @@ class OopzConfig:
         self.device_id = str(self.device_id or "").strip()
         self.person_uid = str(self.person_uid or "").strip()
         self.jwt_token = str(self.jwt_token or "").strip()
-        has_token_credentials = all(
-            str(value or "").strip()
-            for value in (self.device_id, self.person_uid, self.jwt_token)
-        )
 
-        if has_token_credentials and self._is_missing_private_key(self.private_key):
+        if self.has_credentials() and self._is_missing_private_key(self.private_key):
             self.private_key = self._fallback_private_key()
 
     @staticmethod
@@ -227,6 +219,12 @@ class OopzConfig:
         return False
 
     @staticmethod
+    def _require_env(name: str, *, strip: bool = True) -> str:
+        raw = os.environ.get(name, "")
+        if not raw or not raw.strip():
+            raise ValueError(f"{name} environment variable is required")
+
+    @staticmethod
     def _fallback_private_key() -> Any:
         from oopz_sdk.auth._builtin_login_bundle import get_client_signing_key
 
@@ -235,34 +233,36 @@ class OopzConfig:
         )
         return get_client_signing_key()
 
-    @classmethod
-    def _has_complete_credentials(
-            cls,
-            *,
-            device_id: str,
-            person_uid: str,
-            jwt_token: str,
-            private_key: Any,
+    @staticmethod
+    def _has_credentials(
+        *,
+        device_id: str,
+        person_uid: str,
+        jwt_token: str,
     ) -> bool:
-        return (
-                all(str(value or "").strip() for value in (device_id, person_uid, jwt_token))
-                and not cls._is_missing_private_key(private_key)
+        return all(
+            str(value or "").strip()
+            for value in (device_id, person_uid, jwt_token)
         )
 
-    def is_authenticated(self) -> bool:
-        return self._has_complete_credentials(
+    def has_credentials(self) -> bool:
+        return self._has_credentials(
             device_id=self.device_id,
             person_uid=self.person_uid,
             jwt_token=self.jwt_token,
-            private_key=self.private_key,
         )
 
-    def ensure_authenticated(self) -> None:
-        if self.is_authenticated():
+    def ensure_credentials(self) -> None:
+        if self.has_credentials():
+            if self._is_missing_private_key(self.private_key):
+                self.private_key = self._fallback_private_key()
             return
+
         raise ValueError(
-            "OopzConfig is not authenticated. Fill device_id/person_uid/jwt_token/private_key, "
-            "or call `config.login(...)` / `await OopzConfig.from_env_async(...)` before creating clients."
+            "OopzConfig credentials are incomplete. Fill device_id/person_uid/jwt_token, "
+            "or call `config.login(...)` / `await config.login_async(...)` / "
+            "`OopzConfig.from_env()` / `await OopzConfig.from_env_async(...)` "
+            "before creating clients."
         )
 
     @staticmethod
@@ -274,7 +274,6 @@ class OopzConfig:
                 "password_api, password_browser"
             )
         return normalized
-
 
     @staticmethod
     def _build_password_kwargs(
@@ -289,7 +288,9 @@ class OopzConfig:
         from oopz_sdk.auth.password_login import truthy_env
 
         kwargs: dict[str, Any] = {
-            "headless": headless if headless is not None else not truthy_env(os.environ.get(headful_env))
+            "headless": headless
+            if headless is not None
+            else not truthy_env(os.environ.get(headful_env))
         }
         if browser_data_dir:
             kwargs["browser_data_dir"] = browser_data_dir
@@ -300,6 +301,28 @@ class OopzConfig:
         if proxy is not None:
             kwargs["proxy"] = proxy
         return kwargs
+
+    @classmethod
+    def _credentials_mapping(
+        cls,
+        *,
+        device_id: str,
+        person_uid: str,
+        jwt_token: str,
+        private_key: Any = None,
+        app_version: str = "",
+    ) -> dict[str, Any]:
+        signing_key = private_key
+        if cls._is_missing_private_key(signing_key):
+            signing_key = cls._fallback_private_key()
+
+        return {
+            "device_id": str(device_id or "").strip(),
+            "person_uid": str(person_uid or "").strip(),
+            "jwt_token": str(jwt_token or "").strip(),
+            "private_key": signing_key,
+            "app_version": str(app_version or "").strip(),
+        }
 
     @classmethod
     async def _resolve_login_credentials(
@@ -335,15 +358,25 @@ class OopzConfig:
         )
 
         if method == "credentials":
+            if not cls._has_credentials(
+                device_id=device_id,
+                person_uid=person_uid,
+                jwt_token=jwt_token,
+            ):
+                raise ValueError(
+                    "login.method='credentials' requires device_id/person_uid/jwt_token."
+                )
+
             return OopzLoginCredentials.from_mapping(
-                {
-                    "device_id": device_id,
-                    "person_uid": person_uid,
-                    "jwt_token": jwt_token,
-                    "private_key": private_key,
-                    "app_version": app_version,
-                }
+                cls._credentials_mapping(
+                    device_id=device_id,
+                    person_uid=person_uid,
+                    jwt_token=jwt_token,
+                    private_key=private_key,
+                    app_version=app_version,
+                )
             )
+
         if method == "password_api":
             return await asyncio.to_thread(
                 api_password_login_module.login_with_api_password,
@@ -352,41 +385,46 @@ class OopzConfig:
                 device_id=str(device_id or "") or None,
                 timeout=timeout if timeout is not None else 20,
             )
+
         if method == "password_browser":
             return await password_login_module.login_with_playwright_password(
                 cls._require_non_empty(phone, "phone"),
                 str(password or ""),
                 **password_kwargs,
             )
+
         if method == "password":
             return await password_login_module.login_with_password(
                 cls._require_non_empty(phone, "phone"),
                 str(password or ""),
                 **password_kwargs,
             )
-        if cls._has_complete_credentials(
+
+        if cls._has_credentials(
             device_id=device_id,
             person_uid=person_uid,
             jwt_token=jwt_token,
-            private_key=private_key,
         ):
             return OopzLoginCredentials.from_mapping(
-                {
-                    "device_id": device_id,
-                    "person_uid": person_uid,
-                    "jwt_token": jwt_token,
-                    "private_key": private_key,
-                    "app_version": app_version,
-                }
+                cls._credentials_mapping(
+                    device_id=device_id,
+                    person_uid=person_uid,
+                    jwt_token=jwt_token,
+                    private_key=private_key,
+                    app_version=app_version,
+                )
             )
+
         if str(phone or "").strip() and str(password or ""):
             return await password_login_module.login_with_password(
                 cls._require_non_empty(phone, "phone"),
                 str(password or ""),
                 **password_kwargs,
             )
+
         raise ValueError(
-            "No valid login configuration found. Provide complete credentials or phone/password."
+            "No valid login configuration found. Provide device_id/person_uid/jwt_token "
+            "or phone/password."
         )
 
     @classmethod
@@ -397,6 +435,7 @@ class OopzConfig:
         **login_kwargs: Any,
     ) -> "OopzConfig":
         credentials = await cls._resolve_login_credentials(**login_kwargs)
+
         values: dict[str, Any] = {
             "device_id": credentials.device_id,
             "person_uid": credentials.person_uid,
@@ -405,6 +444,7 @@ class OopzConfig:
         }
         if credentials.app_version:
             values["app_version"] = credentials.app_version
+
         values.update(overrides or {})
         return cls(**values)
 
@@ -416,14 +456,22 @@ class OopzConfig:
         self.person_uid = str(credentials.person_uid or "").strip()
         self.jwt_token = str(credentials.jwt_token or "").strip()
         self.private_key = credentials.private_key_pem
+
+        if self.has_credentials() and self._is_missing_private_key(self.private_key):
+            self.private_key = self._fallback_private_key()
+
         if credentials.app_version:
             self.app_version = credentials.app_version
-        if self.is_authenticated() and self._is_missing_private_key(self.private_key):
-            self.private_key = self._fallback_private_key()
+
         return self
 
     @staticmethod
-    def _run_coroutine_sync(coro: Any) -> Any:
+    def _run_coroutine_sync(
+        coro: Any,
+        *,
+        sync_api: str,
+        async_api: str,
+    ) -> Any:
         try:
             asyncio.get_running_loop()
         except RuntimeError:
@@ -431,50 +479,69 @@ class OopzConfig:
 
         coro.close()
         raise RuntimeError(
-            "OopzConfig.from_env() cannot be used inside a running event loop. "
-            "Use `await OopzConfig.from_env_async(...)` instead."
+            f"{sync_api} cannot be used inside a running event loop. "
+            f"Use `{async_api}` instead."
         )
 
     @classmethod
-    async def from_env_async(cls, prefix: str = "OOPZ_", **overrides: Any) -> "OopzConfig":
+    async def from_env_async(
+        cls,
+        prefix: str = "OOPZ_",
+        **overrides: Any,
+    ) -> "OopzConfig":
         method = cls._normalize_login_method(os.environ.get("OOPZ_LOGIN_METHOD", "auto"))
+
         device_id = os.environ.get(f"{prefix}DEVICE_ID", "")
         person_uid = os.environ.get(f"{prefix}PERSON_UID", "")
         jwt_token = os.environ.get(f"{prefix}JWT_TOKEN", "")
         private_key = os.environ.get(f"{prefix}PRIVATE_KEY", "")
         app_version = os.environ.get(f"{prefix}APP_VERSION", "").strip()
+
         phone = os.environ.get("OOPZ_LOGIN_PHONE", "").strip()
         password = os.environ.get("OOPZ_LOGIN_PASSWORD", "")
+
         has_any_credential_value = any(
-            str(value or "").strip() for value in (device_id, person_uid, jwt_token, private_key)
+            str(value or "").strip()
+            for value in (device_id, person_uid, jwt_token, private_key)
         )
-        if method in {"auto", "credentials"} and cls._has_complete_credentials(
+
+        if method in {"auto", "credentials"} and cls._has_credentials(
             device_id=device_id,
             person_uid=person_uid,
             jwt_token=jwt_token,
-            private_key=private_key,
         ):
             values: dict[str, Any] = {
                 "device_id": cls._require_env(f"{prefix}DEVICE_ID"),
                 "person_uid": cls._require_env(f"{prefix}PERSON_UID"),
                 "jwt_token": cls._require_env(f"{prefix}JWT_TOKEN"),
-                "private_key": cls._require_env(f"{prefix}PRIVATE_KEY", strip=False),
             }
+
+            if private_key.strip():
+                values["private_key"] = cls._require_env(
+                    f"{prefix}PRIVATE_KEY",
+                    strip=False,
+                )
+
             if app_version:
                 values["app_version"] = app_version
+
             values.update(overrides)
             return cls(**values)
-        if method == "credentials" or (method == "auto" and has_any_credential_value and not phone and not password):
-            values = {
-                "device_id": cls._require_env(f"{prefix}DEVICE_ID"),
-                "person_uid": cls._require_env(f"{prefix}PERSON_UID"),
-                "jwt_token": cls._require_env(f"{prefix}JWT_TOKEN"),
-                "private_key": cls._require_env(f"{prefix}PRIVATE_KEY", strip=False),
-            }
-            if app_version:
-                values["app_version"] = app_version
-            values.update(overrides)
-            return cls(**values)
+
+        if method == "credentials":
+            raise ValueError(
+                "OOPZ credentials are incomplete. "
+                f"Set {prefix}DEVICE_ID, {prefix}PERSON_UID, and {prefix}JWT_TOKEN. "
+                f"{prefix}PRIVATE_KEY is optional."
+            )
+
+        if method == "auto" and has_any_credential_value and not phone and not password:
+            raise ValueError(
+                "Partial OOPZ credentials found. "
+                f"Set {prefix}DEVICE_ID, {prefix}PERSON_UID, and {prefix}JWT_TOKEN, "
+                "or provide OOPZ_LOGIN_PHONE/OOPZ_LOGIN_PASSWORD."
+            )
+
         return await cls._build_config_from_login(
             method=method,
             device_id=device_id,
@@ -489,8 +556,16 @@ class OopzConfig:
         )
 
     @classmethod
-    def from_env(cls, prefix: str = "OOPZ_", **overrides: Any) -> "OopzConfig":
-        return cls._run_coroutine_sync(cls.from_env_async(prefix=prefix, **overrides))
+    def from_env(
+        cls,
+        prefix: str = "OOPZ_",
+        **overrides: Any,
+    ) -> "OopzConfig":
+        return cls._run_coroutine_sync(
+            cls.from_env_async(prefix=prefix, **overrides),
+            sync_api="OopzConfig.from_env()",
+            async_api="await OopzConfig.from_env_async(...)",
+        )
 
     async def login_async(
         self,
@@ -546,7 +621,7 @@ class OopzConfig:
         timeout: float | None = None,
         proxy: ProxyConfig | dict[str, Any] | str | None = None,
     ) -> "OopzConfig":
-        return self._run_coroutine_sync(
+        return type(self)._run_coroutine_sync(
             self.login_async(
                 phone=phone,
                 password=password,
@@ -562,7 +637,9 @@ class OopzConfig:
                 chromium_executable_path=chromium_executable_path,
                 timeout=timeout,
                 proxy=proxy,
-            )
+            ),
+            sync_api="OopzConfig.login()",
+            async_api="await config.login_async(...)",
         )
 
     @classmethod
@@ -577,6 +654,7 @@ class OopzConfig:
     ) -> "OopzConfig":
         config_overrides = dict(kwargs.pop("config_overrides", {}) or {})
         config = cls(**config_overrides)
+
         return await config.login_async(
             method="password",
             phone=cls._require_non_empty(phone, "phone"),
@@ -602,7 +680,7 @@ class OopzConfig:
     ) -> "OopzConfig":
         warnings.warn(
             "OopzConfig.from_password() is deprecated; create OopzConfig(...) first "
-            "and then call `config.login(...)`.",
+            "and then call `await config.login_async(...)`.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -625,8 +703,8 @@ class OopzConfig:
         **kwargs: Any,
     ) -> "OopzConfig":
         warnings.warn(
-            "OopzConfig.from_password_env() is deprecated; use `from_env` instead, "
-            "or create `OopzConfig(...)` and then call `config.login(...)`.",
+            "OopzConfig.from_password_env() is deprecated; use `from_env_async` instead, "
+            "or create `OopzConfig(...)` and then call `await config.login_async(...)`.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -642,40 +720,19 @@ class OopzConfig:
     def from_password_env_sync(cls, **kwargs: Any) -> "OopzConfig":
         warnings.warn(
             "OopzConfig.from_password_env_sync() is deprecated; use "
-            "`config = OopzConfig(...)` and then `config.login(...)`.",
+            "`OopzConfig.from_env()` or `config = OopzConfig(); config.login(...)`.",
             DeprecationWarning,
             stacklevel=2,
         )
-        return asyncio.run(cls._from_password_impl(
-            cls._require_env(kwargs.pop("phone_env", "OOPZ_LOGIN_PHONE")),
-            cls._require_env(kwargs.pop("password_env", "OOPZ_LOGIN_PASSWORD"), strip=False),
-            headful_env=kwargs.pop("headful_env", "OOPZ_LOGIN_HEADFUL"),
-            headless=kwargs.pop("headless", None),
-            **kwargs,
-        ))
 
-    @staticmethod
-    def _require_env(name: str, *, strip: bool = True) -> str:
-        raw = os.environ.get(name, "")
-        if not raw or not raw.strip():
-            raise ValueError(f"{name} environment variable is required")
-        return raw.strip() if strip else raw
-
-    @property
-    def rate_limit_interval(self) -> float:
-        return self.rate_limit.interval
-
-    @rate_limit_interval.setter
-    def rate_limit_interval(self, value: float) -> None:
-        self.rate_limit.interval = value
-
-    @property
-    def request_timeout(self) -> float | tuple[float, float]:
-        return self.request_config.timeout
-
-    @request_timeout.setter
-    def request_timeout(self, value: float | tuple[float, float]) -> None:
-        self.request_config.timeout = value
-
-    def get_headers(self) -> dict[str, str]:
-        return {**DEFAULT_HEADERS, **self.headers}
+        return cls._run_coroutine_sync(
+            cls._from_password_impl(
+                cls._require_env(kwargs.pop("phone_env", "OOPZ_LOGIN_PHONE")),
+                cls._require_env(kwargs.pop("password_env", "OOPZ_LOGIN_PASSWORD"), strip=False),
+                headful_env=kwargs.pop("headful_env", "OOPZ_LOGIN_HEADFUL"),
+                headless=kwargs.pop("headless", None),
+                **kwargs,
+            ),
+            sync_api="OopzConfig.from_password_env_sync()",
+            async_api="await OopzConfig.from_password_env(...)",
+        )
