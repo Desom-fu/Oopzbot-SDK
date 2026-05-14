@@ -126,8 +126,7 @@ from oopz_sdk import OopzBot, OopzConfig
 
 
 async def main() -> None:
-    config = OopzConfig()
-    await config.from_env_async()
+    config = await OopzConfig.from_env_async()
     bot = OopzBot(config)
 
     @bot.on_message

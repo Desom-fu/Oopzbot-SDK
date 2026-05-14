@@ -8,6 +8,8 @@ import os
 import warnings
 from dataclasses import dataclass, field
 from typing import Any
+from .constants import DEFAULT_HEADERS
+
 logger = logging.getLogger(__name__)
 
 
@@ -736,3 +738,22 @@ class OopzConfig:
             sync_api="OopzConfig.from_password_env_sync()",
             async_api="await OopzConfig.from_password_env(...)",
         )
+
+    @property
+    def rate_limit_interval(self) -> float:
+        return self.rate_limit.interval
+
+    @rate_limit_interval.setter
+    def rate_limit_interval(self, value: float) -> None:
+        self.rate_limit.interval = value
+
+    @property
+    def request_timeout(self) -> float | tuple[float, float]:
+        return self.request_config.timeout
+
+    @request_timeout.setter
+    def request_timeout(self, value: float | tuple[float, float]) -> None:
+        self.request_config.timeout = value
+
+    def get_headers(self) -> dict[str, str]:
+        return {**DEFAULT_HEADERS, **self.headers}
