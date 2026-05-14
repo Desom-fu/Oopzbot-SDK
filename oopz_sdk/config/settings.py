@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import threading
 import warnings
 from dataclasses import dataclass, field
 from typing import Any
@@ -200,8 +201,12 @@ class OopzConfig:
         self.device_id = str(self.device_id or "").strip()
         self.person_uid = str(self.person_uid or "").strip()
         self.jwt_token = str(self.jwt_token or "").strip()
+        has_token_credentials = all(
+            str(value or "").strip()
+            for value in (self.device_id, self.person_uid, self.jwt_token)
+        )
 
-        if self.is_authenticated() and self._is_missing_private_key(self.private_key):
+        if has_token_credentials and self._is_missing_private_key(self.private_key):
             self.private_key = self._fallback_private_key()
 
     @staticmethod
@@ -257,7 +262,7 @@ class OopzConfig:
             return
         raise ValueError(
             "OopzConfig is not authenticated. Fill device_id/person_uid/jwt_token/private_key, "
-            "or call `await config.login(...)` before creating clients."
+            "or call `config.login(...)` / `await OopzConfig.from_env_async(...)` before creating clients."
         )
 
     @staticmethod
@@ -417,8 +422,21 @@ class OopzConfig:
             self.private_key = self._fallback_private_key()
         return self
 
+    @staticmethod
+    def _run_coroutine_sync(coro: Any) -> Any:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+
+        coro.close()
+        raise RuntimeError(
+            "OopzConfig.from_env() cannot be used inside a running event loop. "
+            "Use `await OopzConfig.from_env_async(...)` instead."
+        )
+
     @classmethod
-    def from_env(cls, prefix: str = "OOPZ_", **overrides: Any) -> "OopzConfig":
+    async def from_env_async(cls, prefix: str = "OOPZ_", **overrides: Any) -> "OopzConfig":
         method = cls._normalize_login_method(os.environ.get("OOPZ_LOGIN_METHOD", "auto"))
         device_id = os.environ.get(f"{prefix}DEVICE_ID", "")
         person_uid = os.environ.get(f"{prefix}PERSON_UID", "")
@@ -457,22 +475,24 @@ class OopzConfig:
                 values["app_version"] = app_version
             values.update(overrides)
             return cls(**values)
-        return asyncio.run(
-            cls._build_config_from_login(
-                method=method,
-                device_id=device_id,
-                person_uid=person_uid,
-                jwt_token=jwt_token,
-                private_key=private_key,
-                app_version=app_version,
-                phone=phone,
-                password=password,
-                headful_env="OOPZ_LOGIN_HEADFUL",
-                overrides=overrides,
-            )
+        return await cls._build_config_from_login(
+            method=method,
+            device_id=device_id,
+            person_uid=person_uid,
+            jwt_token=jwt_token,
+            private_key=private_key,
+            app_version=app_version,
+            phone=phone,
+            password=password,
+            headful_env="OOPZ_LOGIN_HEADFUL",
+            overrides=overrides,
         )
 
-    async def login(
+    @classmethod
+    def from_env(cls, prefix: str = "OOPZ_", **overrides: Any) -> "OopzConfig":
+        return cls._run_coroutine_sync(cls.from_env_async(prefix=prefix, **overrides))
+
+    async def login_async(
         self,
         *,
         phone: str = "",
@@ -508,6 +528,43 @@ class OopzConfig:
         )
         return self._apply_login_credentials(credentials)
 
+    def login(
+        self,
+        *,
+        phone: str = "",
+        password: str = "",
+        device_id: str = "",
+        person_uid: str = "",
+        jwt_token: str = "",
+        private_key: Any = None,
+        method: str = "auto",
+        app_version: str = "",
+        headful_env: str = "OOPZ_LOGIN_HEADFUL",
+        headless: bool | None = None,
+        browser_data_dir: str | None = None,
+        chromium_executable_path: str | None = None,
+        timeout: float | None = None,
+        proxy: ProxyConfig | dict[str, Any] | str | None = None,
+    ) -> "OopzConfig":
+        return self._run_coroutine_sync(
+            self.login_async(
+                phone=phone,
+                password=password,
+                device_id=device_id,
+                person_uid=person_uid,
+                jwt_token=jwt_token,
+                private_key=private_key,
+                method=method,
+                app_version=app_version,
+                headful_env=headful_env,
+                headless=headless,
+                browser_data_dir=browser_data_dir,
+                chromium_executable_path=chromium_executable_path,
+                timeout=timeout,
+                proxy=proxy,
+            )
+        )
+
     @classmethod
     async def _from_password_impl(
         cls,
@@ -518,15 +575,9 @@ class OopzConfig:
         headless: bool | None = None,
         **kwargs: Any,
     ) -> "OopzConfig":
-        warnings.warn(
-            "OopzConfig.from_password() is deprecated; create OopzConfig(...) first "
-            "and then call `await config.login(...)`.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         config_overrides = dict(kwargs.pop("config_overrides", {}) or {})
         config = cls(**config_overrides)
-        return await config.login(
+        return await config.login_async(
             method="password",
             phone=cls._require_non_empty(phone, "phone"),
             password=str(password or ""),
@@ -551,7 +602,7 @@ class OopzConfig:
     ) -> "OopzConfig":
         warnings.warn(
             "OopzConfig.from_password() is deprecated; create OopzConfig(...) first "
-            "and then call `await config.login(...)`.",
+            "and then call `config.login(...)`.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -574,8 +625,8 @@ class OopzConfig:
         **kwargs: Any,
     ) -> "OopzConfig":
         warnings.warn(
-            "OopzConfig.from_password_env() is deprecated; use "
-            "`config = OopzConfig(...)` and then `await config.login(...)`.",
+            "OopzConfig.from_password_env() is deprecated; use `from_env` instead, "
+            "or create `OopzConfig(...)` and then call `config.login(...)`.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -591,7 +642,7 @@ class OopzConfig:
     def from_password_env_sync(cls, **kwargs: Any) -> "OopzConfig":
         warnings.warn(
             "OopzConfig.from_password_env_sync() is deprecated; use "
-            "`config = OopzConfig(...)` and then `await config.login(...)`.",
+            "`config = OopzConfig(...)` and then `config.login(...)`.",
             DeprecationWarning,
             stacklevel=2,
         )

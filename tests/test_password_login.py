@@ -219,15 +219,13 @@ def test_oopz_config_from_password_env_sync(monkeypatch) -> None:
 
 
 def test_oopz_config_login_auto_prefers_credentials() -> None:
-    config = asyncio.run(
-        OopzConfig().login(
-            method="auto",
-            device_id="device-1",
-            person_uid="person-1",
-            jwt_token="token-1",
-            private_key="pem-1",
-            app_version="70001",
-        )
+    config = OopzConfig().login(
+        method="auto",
+        device_id="device-1",
+        person_uid="person-1",
+        jwt_token="token-1",
+        private_key="pem-1",
+        app_version="70001",
     )
 
     assert config.device_id == "device-1"
@@ -254,15 +252,13 @@ def test_oopz_config_login_manual_password_browser(monkeypatch) -> None:
 
     monkeypatch.setattr(password_login_module, "login_with_playwright_password", fake_login_with_playwright_password)
 
-    config = asyncio.run(
-        OopzConfig().login(
-            method="password_browser",
-            phone="phone-3",
-            password="password-3",
-            headless=False,
-            browser_data_dir=".browser-profile",
-            timeout=33,
-        )
+    config = OopzConfig().login(
+        method="password_browser",
+        phone="phone-3",
+        password="password-3",
+        headless=False,
+        browser_data_dir=".browser-profile",
+        timeout=33,
     )
 
     assert calls == {
@@ -293,13 +289,11 @@ def test_oopz_config_login_is_more_direct_entrypoint(monkeypatch) -> None:
 
     monkeypatch.setattr(password_login_module, "login_with_password", fake_login_with_password)
 
-    config = asyncio.run(
-        OopzConfig().login(
-            method="auto",
-            phone="13800138000",
-            password="your-password",
-            headless=False,
-        )
+    config = OopzConfig().login(
+        method="auto",
+        phone="13800138000",
+        password="your-password",
+        headless=False,
     )
 
     assert calls == {
@@ -314,7 +308,7 @@ def test_oopz_config_login_is_more_direct_entrypoint(monkeypatch) -> None:
     assert config.app_version == "79999"
 
 
-def test_oopz_config_login_can_be_awaited(monkeypatch) -> None:
+def test_oopz_config_login_async_can_be_awaited(monkeypatch) -> None:
     async def fake_login_with_password(phone, password, **kwargs):
         return OopzLoginCredentials(
             device_id="device-sync",
@@ -325,7 +319,7 @@ def test_oopz_config_login_can_be_awaited(monkeypatch) -> None:
 
     monkeypatch.setattr(password_login_module, "login_with_password", fake_login_with_password)
 
-    config = asyncio.run(OopzConfig().login(phone="p", password="pw"))
+    config = asyncio.run(OopzConfig().login_async(phone="p", password="pw"))
 
     assert config.device_id == "device-sync"
 
@@ -345,12 +339,32 @@ def test_oopz_config_can_be_created_without_auth_then_logged_in(monkeypatch) -> 
 
     assert config.is_authenticated() is False
 
-    logged_in = asyncio.run(config.login(phone="p", password="pw"))
+    logged_in = config.login(phone="p", password="pw")
 
     assert logged_in is config
     assert config.device_id == "device-late"
     assert config.base_url == "https://example.test"
     assert config.ignore_self_messages is False
+
+
+def test_oopz_config_sync_login_works_inside_running_event_loop(monkeypatch) -> None:
+    async def fake_login_with_password(phone, password, **kwargs):
+        return OopzLoginCredentials(
+            device_id="device-threaded",
+            person_uid="person-threaded",
+            jwt_token="token-threaded",
+            private_key_pem="pem-threaded",
+        )
+
+    monkeypatch.setattr(password_login_module, "login_with_password", fake_login_with_password)
+
+    async def run_login() -> OopzConfig:
+        config = OopzConfig()
+        return config.login(phone="p", password="pw")
+
+    config = asyncio.run(run_login())
+
+    assert config.device_id == "device-threaded"
 
 
 def test_oopz_config_from_password_warns_and_still_works(monkeypatch) -> None:
@@ -412,6 +426,68 @@ def test_oopz_config_from_env_auto_uses_password_login_when_credentials_absent(m
     assert config.jwt_token == "token-auto"
     assert config.private_key == "pem-auto"
     assert config.base_url == "https://example.auto"
+
+
+def test_oopz_config_from_env_async_uses_password_login_when_credentials_absent(monkeypatch) -> None:
+    monkeypatch.delenv("OOPZ_DEVICE_ID", raising=False)
+    monkeypatch.delenv("OOPZ_PERSON_UID", raising=False)
+    monkeypatch.delenv("OOPZ_JWT_TOKEN", raising=False)
+    monkeypatch.delenv("OOPZ_PRIVATE_KEY", raising=False)
+    monkeypatch.setenv("OOPZ_LOGIN_PHONE", "phone-async")
+    monkeypatch.setenv("OOPZ_LOGIN_PASSWORD", "password-async")
+    monkeypatch.delenv("OOPZ_LOGIN_HEADFUL", raising=False)
+    calls = {}
+
+    async def fake_login_with_password(phone, password, **kwargs):
+        calls["phone"] = phone
+        calls["password"] = password
+        calls["kwargs"] = kwargs
+        return OopzLoginCredentials(
+            device_id="device-async",
+            person_uid="person-async",
+            jwt_token="token-async",
+            private_key_pem="pem-async",
+        )
+
+    monkeypatch.setattr(password_login_module, "login_with_password", fake_login_with_password)
+
+    config = asyncio.run(OopzConfig.from_env_async(base_url="https://example.async"))
+
+    assert calls == {
+        "phone": "phone-async",
+        "password": "password-async",
+        "kwargs": {"headless": True},
+    }
+    assert config.device_id == "device-async"
+    assert config.base_url == "https://example.async"
+
+
+def test_oopz_config_from_env_works_inside_running_event_loop(monkeypatch) -> None:
+    monkeypatch.delenv("OOPZ_DEVICE_ID", raising=False)
+    monkeypatch.delenv("OOPZ_PERSON_UID", raising=False)
+    monkeypatch.delenv("OOPZ_JWT_TOKEN", raising=False)
+    monkeypatch.delenv("OOPZ_PRIVATE_KEY", raising=False)
+    monkeypatch.setenv("OOPZ_LOGIN_PHONE", "phone-loop")
+    monkeypatch.setenv("OOPZ_LOGIN_PASSWORD", "password-loop")
+    monkeypatch.delenv("OOPZ_LOGIN_HEADFUL", raising=False)
+
+    async def fake_login_with_password(phone, password, **kwargs):
+        return OopzLoginCredentials(
+            device_id="device-loop",
+            person_uid="person-loop",
+            jwt_token="token-loop",
+            private_key_pem="pem-loop",
+        )
+
+    monkeypatch.setattr(password_login_module, "login_with_password", fake_login_with_password)
+
+    async def run_from_env() -> OopzConfig:
+        return OopzConfig.from_env(base_url="https://example.loop")
+
+    config = asyncio.run(run_from_env())
+
+    assert config.device_id == "device-loop"
+    assert config.base_url == "https://example.loop"
 
 
 def test_oopz_config_from_env_respects_manual_login_method(monkeypatch) -> None:

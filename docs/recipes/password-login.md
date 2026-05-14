@@ -57,7 +57,8 @@ from oopz_sdk import OopzConfig
 
 
 async def main() -> None:
-    config = await OopzConfig.from_password_env()
+    config = OopzConfig()
+    await config.from_env_async()
     print(config.person_uid)
 
 
