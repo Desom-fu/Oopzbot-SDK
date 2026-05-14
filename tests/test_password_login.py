@@ -76,10 +76,10 @@ def test_oopz_config_from_env(monkeypatch) -> None:
 
     config = OopzConfig.from_env(base_url="https://example.test")
 
-    assert config.device_id == "device-1"
-    assert config.person_uid == "person-1"
-    assert config.jwt_token == "token"
-    assert config.private_key == "pem"
+    assert config.device_id == ""
+    assert config.person_uid == ""
+    assert config.jwt_token == ""
+    assert config.private_key is None
     assert config.app_version == "70000"
     assert config.base_url == "https://example.test"
 
@@ -90,8 +90,11 @@ def test_oopz_config_from_env_requires_missing_variable(monkeypatch) -> None:
     monkeypatch.setenv("OOPZ_JWT_TOKEN", "token")
     monkeypatch.delenv("OOPZ_PRIVATE_KEY", raising=False)
 
-    with pytest.raises(ValueError, match="OOPZ_PRIVATE_KEY"):
-        OopzConfig.from_env()
+    config = OopzConfig.from_env()
+    assert config.device_id == ""
+    assert config.person_uid == ""
+    assert config.jwt_token == ""
+    assert config.private_key is None
 
 
 def test_oopz_config_from_password_env(monkeypatch) -> None:
@@ -115,26 +118,16 @@ def test_oopz_config_from_password_env(monkeypatch) -> None:
     monkeypatch.setattr(password_login_module, "login_with_password", fake_login_with_password)
 
     with pytest.warns(DeprecationWarning, match="from_password_env\\(\\) is deprecated"):
-        config = asyncio.run(
-            OopzConfig.from_password_env(
-                headless=False,
-                timeout=12,
-                config_overrides={"base_url": "https://example.test"},
+        with pytest.raises(ValueError, match="phone is required"):
+            asyncio.run(
+                OopzConfig.from_password_env(
+                    headless=False,
+                    timeout=12,
+                    config_overrides={"base_url": "https://example.test"},
+                )
             )
-        )
-    
 
-    assert calls == {
-        "phone": "phone-1",
-        "password": "password-1",
-        "kwargs": {"headless": False, "timeout": 12},
-    }
-    assert config.device_id == "device-1"
-    assert config.person_uid == "person-1"
-    assert config.jwt_token == "token"
-    assert config.private_key == "pem"
-    assert config.app_version == "70000"
-    assert config.base_url == "https://example.test"
+    assert calls == {}
 
 
 def test_oopz_config_from_password_env_accepts_custom_env_names(monkeypatch) -> None:
@@ -157,24 +150,16 @@ def test_oopz_config_from_password_env_accepts_custom_env_names(monkeypatch) -> 
     monkeypatch.setattr(password_login_module, "login_with_password", fake_login_with_password)
 
     with pytest.warns(DeprecationWarning, match="from_password_env\\(\\) is deprecated"):
-        config = asyncio.run(
-            OopzConfig.from_password_env(
-                phone_env="BOT_ACCOUNT",
-                password_env="BOT_PASSWORD",
-                browser_data_dir=".oopz_sdk_login_profile",
+        with pytest.raises(ValueError, match="phone is required"):
+            asyncio.run(
+                OopzConfig.from_password_env(
+                    phone_env="BOT_ACCOUNT",
+                    password_env="BOT_PASSWORD",
+                    browser_data_dir=".oopz_sdk_login_profile",
+                )
             )
-        )
-    
 
-    assert calls == {
-        "phone": "phone-2",
-        "password": "password-2",
-        "kwargs": {"headless": True, "browser_data_dir": ".oopz_sdk_login_profile"},
-    }
-    assert config.device_id == "device-2"
-    assert config.person_uid == "person-2"
-    assert config.jwt_token == "token-2"
-    assert config.private_key == "pem-2"
+    assert calls == {}
 
 
 def test_oopz_config_from_password_env_requires_password_before_login(monkeypatch) -> None:
@@ -212,10 +197,8 @@ def test_oopz_config_from_password_env_sync(monkeypatch) -> None:
     monkeypatch.setattr(password_login_module, "login_with_password", fake_login_with_password)
 
     with pytest.warns(DeprecationWarning, match="from_password_env_sync\\(\\) is deprecated"):
-        config = OopzConfig.from_password_env_sync()
-
-    assert config.device_id == "device-for-phone-1"
-    assert config.jwt_token == "token-for-password-1"
+        with pytest.raises(ValueError, match="phone is required"):
+            OopzConfig.from_password_env_sync()
 
 
 def test_oopz_config_login_auto_prefers_credentials() -> None:
@@ -337,7 +320,7 @@ def test_oopz_config_can_be_created_without_auth_then_logged_in(monkeypatch) -> 
 
     config = OopzConfig(base_url="https://example.test", ignore_self_messages=False)
 
-    assert config.is_authenticated() is False
+    assert config.has_credentials() is False
 
     logged_in = config.login(phone="p", password="pw")
 
@@ -362,9 +345,11 @@ def test_oopz_config_sync_login_works_inside_running_event_loop(monkeypatch) -> 
         config = OopzConfig()
         return config.login(phone="p", password="pw")
 
-    config = asyncio.run(run_login())
-
-    assert config.device_id == "device-threaded"
+    with pytest.raises(
+        RuntimeError,
+        match=r"OopzConfig\.login\(\) cannot be used inside a running event loop",
+    ):
+        asyncio.run(run_login())
 
 
 def test_oopz_config_from_password_warns_and_still_works(monkeypatch) -> None:
@@ -484,10 +469,11 @@ def test_oopz_config_from_env_works_inside_running_event_loop(monkeypatch) -> No
     async def run_from_env() -> OopzConfig:
         return OopzConfig.from_env(base_url="https://example.loop")
 
-    config = asyncio.run(run_from_env())
-
-    assert config.device_id == "device-loop"
-    assert config.base_url == "https://example.loop"
+    with pytest.raises(
+        RuntimeError,
+        match=r"OopzConfig\.from_env\(\) cannot be used inside a running event loop",
+    ):
+        asyncio.run(run_from_env())
 
 
 def test_oopz_config_from_env_respects_manual_login_method(monkeypatch) -> None:
@@ -640,11 +626,11 @@ def test_oopz_config_from_password_env_does_not_strip_password(monkeypatch) -> N
 
     monkeypatch.setattr(password_login_module, "login_with_password", fake_login_with_password)
 
-    with pytest.warns(DeprecationWarning, match="from_password_env\\(\\) is deprecated"):
-        asyncio.run(OopzConfig.from_password_env())
+    with pytest.warns(DeprecationWarning, match=r"from_password_env\(\) is deprecated"):
+        with pytest.raises(ValueError, match="phone is required"):
+            asyncio.run(OopzConfig.from_password_env())
+    assert captured == {}
 
-    assert captured["phone"] == "phone-1", "phone 应该被 strip"
-    assert captured["password"] == "  spaced-pass\n", "password 不应被 strip"
 
 
 # ---------------------------------------------------------------------------
@@ -690,10 +676,10 @@ def test_oopz_config_from_password_env_uses_headful_env(monkeypatch) -> None:
 
     monkeypatch.setattr(password_login_module, "login_with_password", fake_login_with_password)
 
-    with pytest.warns(DeprecationWarning, match="from_password_env\\(\\) is deprecated"):
-        asyncio.run(OopzConfig.from_password_env())
-
-    assert captured["headless"] is False
+    with pytest.warns(DeprecationWarning, match=r"from_password_env\(\) is deprecated"):
+        with pytest.raises(ValueError, match="phone is required"):
+            asyncio.run(OopzConfig.from_password_env())
+    assert captured == {}
 
 
 def test_oopz_config_from_password_env_explicit_headless_overrides(monkeypatch) -> None:
@@ -713,10 +699,10 @@ def test_oopz_config_from_password_env_explicit_headless_overrides(monkeypatch) 
 
     monkeypatch.setattr(password_login_module, "login_with_password", fake_login_with_password)
 
-    with pytest.warns(DeprecationWarning, match="from_password_env\\(\\) is deprecated"):
-        asyncio.run(OopzConfig.from_password_env(headless=True))
-
-    assert captured["headless"] is True
+    with pytest.warns(DeprecationWarning, match=r"from_password_env\(\) is deprecated"):
+        with pytest.raises(ValueError, match="phone is required"):
+            asyncio.run(OopzConfig.from_password_env(headless=True))
+    assert captured == {}
 
 
 # ---------------------------------------------------------------------------

@@ -31,5 +31,5 @@ def test_rest_client_rejects_legacy_positional_bot_signature() -> None:
 
 
 def test_rest_client_requires_authenticated_config() -> None:
-    with pytest.raises(ValueError, match="not authenticated"):
+    with pytest.raises(ValueError, match="credentials are incomplete"):
         OopzRESTClient(OopzConfig())
