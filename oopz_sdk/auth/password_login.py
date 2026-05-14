@@ -12,6 +12,7 @@ import os
 import shlex
 import tempfile
 import time
+import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -239,9 +240,8 @@ def _should_fallback_to_browser(exc: OopzPasswordLoginError) -> bool:
         return False
     text = str(exc).lower()
     fatal_markers = (
-        "账号和密码不能为空",
-        "未返回 uid",
-        "未返回 signature",
+        "该手机号尚未注册",
+        "密码错误"
     )
     if any(marker in str(exc) for marker in fatal_markers):
         return False
@@ -801,7 +801,7 @@ async def login_with_password(
     except OopzPasswordLoginError as exc:
         if not _should_fallback_to_browser(exc):
             raise
-        logger.warning("OOPZ API 登录失败，回退到 Playwright: %s", exc)
+        warnings.warn("OOPZ API 登录失败，正在尝试使用Playwright登录")
         return await login_with_playwright_password(phone, password, **kwargs)
 
 
