@@ -5,12 +5,13 @@
 面向 Oopz 机器人开发与生态的现代异步 Python SDK。
 
 
-[![License](https://img.shields.io/github/license/tangqingfeng7/Oopzbot-SDK)](https://github.com/tangqingfeng7/Oopzbot-SDK)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Package](https://img.shields.io/badge/package-oopz--sdk-yellow.svg)](https://pypi.org/project/oopz-sdk/)
-[![Async](https://img.shields.io/badge/asyncio-ready-purple.svg)](https://docs.python.org/3/library/asyncio.html)
-[![Typing](https://img.shields.io/badge/typing-pydantic%20v2-orange.svg)](https://docs.pydantic.dev/)
-[![OneBot](https://img.shields.io/badge/OneBot-v11-blueviolet?style=flat-square)](https://tangqingfeng7.github.io/Oopzbot-SDK/adapters/onebot/)
+[![License](https://img.shields.io/github/license/tangqingfeng7/Oopzbot-SDK?labelColor=555&color=97CA00)](https://github.com/tangqingfeng7/Oopzbot-SDK)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PyPI - Version](https://img.shields.io/pypi/v/oopz-sdk?logo=pypi&logoColor=white&label=PyPI&labelColor=3775A9&color=2D9CDB)](https://pypi.org/project/oopz-sdk/)
+[![Async](https://img.shields.io/badge/asyncio-ready-7B61FF.svg)](https://docs.python.org/3/library/asyncio.html)
+[![Typing](https://img.shields.io/badge/typing-pydantic%20v2-E92063.svg?logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
+[![OneBot](https://img.shields.io/badge/OneBot-v11-8A2BE2)](https://tangqingfeng7.github.io/Oopzbot-SDK/adapters/onebot/)
+[![Docs](https://img.shields.io/badge/docs-online-2ea44f?logo=materialformkdocs&logoColor=white)](https://tangqingfeng7.github.io/Oopzbot-SDK/)
 
 **异步优先 · 事件驱动 · 类型友好 · 消息 / 媒体 / 语音**
 
