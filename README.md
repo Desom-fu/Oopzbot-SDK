@@ -68,8 +68,6 @@ pytest
 python -m playwright install chromium
 ```
 
-需要通过账号密码自动登录时，也使用同一个 Chromium 运行时。
-
 ## 🚀 快速开始
 
 创建 `bot.py`：
